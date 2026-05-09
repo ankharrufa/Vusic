@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>SPECTRA — Music Visualizer</title>
+<title>VUSIC — Music Visualizer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -140,6 +140,40 @@
   #live-dot.active { background:#ff4444; box-shadow:0 0 10px #ff4444; animation:blink 1.2s infinite; }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
+  /* ── FULLSCREEN MODE ── */
+  #app.fullscreen #header,
+  #app.fullscreen #bottom-panel { opacity:0; pointer-events:none; transition:opacity 0.4s; }
+  #app.fullscreen #header,
+  #app.fullscreen #bottom-panel { height:0; overflow:hidden; padding:0; border:none; min-height:0; }
+  #app.fullscreen { grid-template-rows:0 1fr 0; }
+
+  /* Fullscreen track overlay - shown in fullscreen */
+  #fs-overlay {
+    position:absolute; bottom:0; left:0; right:0;
+    padding:20px 24px 28px;
+    background:linear-gradient(transparent, rgba(0,0,0,0.85));
+    z-index:8; pointer-events:none;
+    opacity:0; transition:opacity 0.4s;
+    display:flex; align-items:flex-end; gap:16px;
+  }
+  #app.fullscreen #fs-overlay { opacity:1; }
+
+  #fs-art { width:64px; height:64px; border-radius:8px; object-fit:cover; flex-shrink:0; background:#1a1a1a; display:none; box-shadow:0 4px 20px rgba(0,0,0,0.6); }
+  #fs-art.visible { display:block; }
+  #fs-info { min-width:0; }
+  #fs-track { font-family:'Bebas Neue',sans-serif; font-size:clamp(22px,4vw,36px); letter-spacing:3px; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,0.8); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #fs-artist { font-size:clamp(12px,1.8vw,16px); color:rgba(255,255,255,0.7); letter-spacing:1px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #fs-album { font-size:clamp(10px,1.4vw,13px); color:var(--accent); letter-spacing:1px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.9; }
+
+  /* Tap hint */
+  #fs-hint {
+    position:absolute; top:16px; right:16px;
+    font-size:10px; letter-spacing:2px; color:rgba(255,255,255,0.3);
+    z-index:9; pointer-events:none;
+    opacity:0; transition:opacity 0.4s;
+  }
+  #app.fullscreen #fs-hint { opacity:1; }
+
   /* Small screen */
   @media (max-width:520px) {
     #header { padding:8px 10px; gap:8px; }
@@ -161,7 +195,7 @@
 
   <!-- HEADER -->
   <div id="header">
-    <div id="logo">SPECTRA</div>
+    <div id="logo">VUSIC</div>
     <div id="spotify-panel">
       <div id="album-art-placeholder">♪</div>
       <img id="album-art" src="" alt="Album Art" crossorigin="anonymous">
@@ -175,6 +209,7 @@
       <div id="live-dot"></div>
       <button class="btn" id="mic-btn" onclick="toggleMic()">🎙<span class="btn-label"> MIC</span></button>
       <button class="btn btn-spotify" id="spotify-btn" onclick="spotifyLogin()">●<span class="btn-label"> SPOTIFY</span></button>
+      <button class="btn" onclick="toggleFullscreen()" id="fs-btn">⛶<span class="btn-label"> FULL</span></button>
       <button class="btn" onclick="toggleSettings()">⚙<span class="btn-label"> SET</span></button>
     </div>
   </div>
@@ -184,9 +219,20 @@
     <canvas id="bg-canvas"></canvas>
     <canvas id="main-canvas"></canvas>
     <div id="config-notice">
-      <h2>SPECTRA</h2>
+      <h2>VUSIC</h2>
       <p>TAP MIC TO START VISUALIZER</p>
     </div>
+
+    <!-- FULLSCREEN overlays -->
+    <div id="fs-overlay">
+      <img id="fs-art" src="" alt="">
+      <div id="fs-info">
+        <div id="fs-track">—</div>
+        <div id="fs-artist"></div>
+        <div id="fs-album"></div>
+      </div>
+    </div>
+    <div id="fs-hint">TAP TO SHOW CONTROLS</div>
 
     <!-- SETTINGS DRAWER -->
     <div id="settings-drawer">
@@ -251,7 +297,7 @@
 
       <div class="setting-row">
         <label>NOISE FLOOR (remove hiss) <span id="noise-val">0%</span></label>
-        <input type="range" class="touch-slider" id="noise-floor" min="0" max="60" value="0" oninput="updateSettings()">
+        <input type="range" class="touch-slider" id="noise-floor" min="0" max="100" value="0" oninput="updateSettings()">
       </div>
 
       <div class="setting-row">
@@ -263,13 +309,13 @@
       <div class="setting-section">FREQUENCY RANGE</div>
 
       <div class="setting-row">
-        <label>MIN FREQ <span id="freq-min-val">20 Hz</span></label>
-        <input type="range" class="touch-slider" id="freq-min" min="20" max="500" value="20" oninput="updateFreqMin()">
+        <label>MIN FREQ (cut low rumble) <span id="freq-min-val">0 Hz</span></label>
+        <input type="range" class="touch-slider" id="freq-min" min="0" max="100" value="0" oninput="updateFreqMin()">
       </div>
 
       <div class="setting-row">
-        <label>MAX FREQ <span id="freq-max-val">20 kHz</span></label>
-        <input type="range" class="touch-slider" id="freq-max" min="1000" max="20000" value="20000" oninput="updateFreqMax()">
+        <label>MAX FREQ (cut high hiss) <span id="freq-max-val">10 kHz</span></label>
+        <input type="range" class="touch-slider" id="freq-max" min="5000" max="10000" value="10000" oninput="updateFreqMax()">
       </div>
 
       <div class="setting-row">
@@ -339,7 +385,7 @@
     <div class="v-divider"></div>
 
     <div class="control-group" style="margin-left:auto">
-      <span id="freq-display" style="font-size:9px;color:var(--muted);letter-spacing:1px;white-space:nowrap;">20 Hz — 20 kHz</span>
+      <span id="freq-display" style="font-size:9px;color:var(--muted);letter-spacing:1px;white-space:nowrap;">0 Hz — 10 kHz</span>
     </div>
   </div>
 </div>
@@ -355,7 +401,7 @@ const state = {
   micActive: false, audioCtx: null, analyser: null, stream: null,
   animFrame: null, spotifyToken: null, spotifyInterval: null, currentTrack: null,
   vizMode: 'bars', colorTheme: 'fire',
-  freqMin: 20, freqMax: 20000, barCount: 64,
+  freqMin: 0, freqMax: 10000, barCount: 64,
   smoothing: 0.8, gain: 1.5, yScale: 1.0, noiseFloor: 0,
   roundness: 4, peakHold: true, bgBlur: true,
   peaks: [], peakTimers: [], bars: [],
@@ -437,12 +483,12 @@ function draw() {
       for (let b=s2;b<=e2;b++) mx=Math.max(mx,fd[b]);
       // Apply gain
       let db = Math.max(-120, mx * state.gain);
-      // Subtract noise floor (in dB space)
-      const noiseDb = -90 + state.noiseFloor * 0.5;
-      db = Math.max(0, db - noiseDb - (-90));
-      // Normalize 0-1 with yScale applied
+      // Subtract noise floor: slider 0-100 maps to 0-50dB subtraction
+      const noiseDb = state.noiseFloor * 0.5;
+      db = db + 90; // shift to 0-based (0 = silence at -90dB)
+      db = Math.max(0, db - noiseDb);
+      // Normalize 0-1 with yScale power curve
       let norm = db / 80;
-      // Apply yScale: power curve that stretches low values
       norm = Math.pow(Math.max(0,Math.min(1,norm)), 1/state.yScale);
       raw[i] = Math.min(1, norm);
     }
@@ -687,7 +733,14 @@ function updateTrackUI(track) {
   if(!track){ne.textContent='NOTHING PLAYING';ae.textContent='Spotify connected';ale.textContent='';artEl.classList.remove('visible');phEl.style.display='flex';return;}
   const prev=state.currentTrack; state.currentTrack=track;
   ne.textContent=track.name.toUpperCase(); ae.textContent=track.artist; ale.textContent=track.album;
+  // Sync fullscreen overlay
+  document.getElementById('fs-track').textContent=track.name.toUpperCase();
+  document.getElementById('fs-artist').textContent=track.artist;
+  document.getElementById('fs-album').textContent=track.album;
   if(track.art&&track.art!==prev?.art){
+    const fsArt=document.getElementById('fs-art');
+    fsArt.src=track.art; fsArt.onload=()=>fsArt.classList.add('visible');
+  }
     artEl.src=track.art;
     artEl.onload=()=>{artEl.classList.add('visible');phEl.style.display='none';if(state.colorTheme==='album')extractAlbumColors(artEl);};
     bgImage=new Image(); bgImage.crossOrigin='anonymous'; bgImage.src=track.art;
@@ -743,9 +796,32 @@ function updateFreqMin() {
 }
 function updateFreqMax() {
   state.freqMax=parseInt(document.getElementById('freq-max').value);
-  document.getElementById('freq-max-val').textContent=(state.freqMax/1000).toFixed(0)+' kHz';
+  document.getElementById('freq-max-val').textContent=(state.freqMax/1000).toFixed(1)+' kHz';
   document.getElementById('freq-display').textContent=`${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;
 }
+
+// ── FULLSCREEN ──
+let fsActive = false;
+function toggleFullscreen() {
+  fsActive = !fsActive;
+  document.getElementById('app').classList.toggle('fullscreen', fsActive);
+  document.getElementById('fs-btn').innerHTML = fsActive ? '✕<span class="btn-label"> EXIT</span>' : '⛶<span class="btn-label"> FULL</span>';
+  resizeCanvases();
+  // Try native fullscreen on supported devices
+  if (fsActive) {
+    document.documentElement.requestFullscreen?.().catch(()=>{});
+  } else {
+    document.exitFullscreen?.().catch(()=>{});
+  }
+}
+
+// Tap canvas to toggle controls in fullscreen
+document.getElementById('viz-container').addEventListener('click', (e) => {
+  // Don't trigger if settings drawer is open or tapping a button
+  if (state.settingsOpen) return;
+  if (e.target.closest('button, .toggle-opt, .color-btn, select, input, #settings-drawer')) return;
+  if (fsActive) toggleFullscreen();
+});
 
 function setToggle(key, val) {
   state[key]=val;
