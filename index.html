@@ -141,11 +141,9 @@
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
   /* ── FULLSCREEN MODE ── */
-  #app.fullscreen #header,
-  #app.fullscreen #bottom-panel { opacity:0; pointer-events:none; transition:opacity 0.4s; }
-  #app.fullscreen #header,
-  #app.fullscreen #bottom-panel { height:0; overflow:hidden; padding:0; border:none; min-height:0; }
   #app.fullscreen { grid-template-rows:0 1fr 0; }
+  #app.fullscreen #header { opacity:0; pointer-events:none; height:0; overflow:hidden; padding:0; border:none; min-height:0; transition:all 0.3s; }
+  #app.fullscreen #bottom-panel { opacity:0; pointer-events:none; height:0; overflow:hidden; padding:0; border:none; min-height:0; transition:all 0.3s; }
 
   /* Fullscreen track overlay - shown in fullscreen */
   #fs-overlay {
@@ -815,11 +813,8 @@ function toggleFullscreen() {
   }
 }
 
-// Tap canvas to toggle controls in fullscreen
-document.getElementById('viz-container').addEventListener('click', (e) => {
-  // Don't trigger if settings drawer is open or tapping a button
-  if (state.settingsOpen) return;
-  if (e.target.closest('button, .toggle-opt, .color-btn, select, input, #settings-drawer')) return;
+// Tap canvas to exit fullscreen
+document.getElementById('main-canvas').addEventListener('click', () => {
   if (fsActive) toggleFullscreen();
 });
 
