@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SPECTRA — Music Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --c1: #ff6b35;
+    --c2: #f7c59f;
+    --bg: #080808;
+    --surface: #111111;
+    --border: rgba(255,255,255,0.07);
+    --text: #f0f0f0;
+    --muted: rgba(240,240,240,0.4);
+    --accent: #ff6b35;
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    overflow: hidden;
+  }
+
+  /* ── LAYOUT ── */
+  #app {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  /* ── HEADER ── */
+  #header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+
+  #logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(20px, 4vw, 28px);
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-shadow: 0 0 30px var(--accent);
+    flex-shrink: 0;
+  }
+
+  /* ── SPOTIFY PANEL ── */
+  #spotify-panel {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  #album-art {
+    width: 42px;
+    height: 42px;
+    border-radius: 5px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #1a1a1a;
+    border: 1px solid var(--border);
+    display: none;
+  }
+
+  #album-art.visible { display: block; }
+
+  #album-art-placeholder {
+    width: 42px;
+    height: 42px;
+    border-radius: 5px;
+    background: #1a1a1a;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 18px;
+    opacity: 0.4;
+  }
+
+  #track-info {
+    min-width: 0;
+    flex: 1;
+  }
+
+  #track-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(16px, 2.5vw, 24px);
+    letter-spacing: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text);
+    line-height: 1.1;
+  }
+
+  #track-artist {
+    font-size: clamp(9px, 1.3vw, 12px);
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 1px;
+    margin-top: 2px;
+  }
+
+  #track-album {
+    font-size: clamp(8px, 1.1vw, 11px);
+    color: var(--accent);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 1px;
+    margin-top: 1px;
+    opacity: 0.8;
+  }
+
+  /* ── BUTTONS ── */
+  .btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 8px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    background: transparent;
+    color: var(--text);
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* Icon-only on small screens */
+  .btn .btn-label { display: inline; }
+
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-spotify {
+    background: #1DB954;
+    color: #000;
+    border-color: #1DB954;
+  }
+
+  .btn-spotify:hover { opacity: 0.85; color: #000; }
+
+  #mic-btn { position: relative; }
+
+  #mic-btn.active {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+  }
+
+  #mic-btn.active::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 6px;
+    border: 1px solid var(--accent);
+    animation: pulse-ring 1.5s infinite;
+  }
+
+  @keyframes pulse-ring {
+    0% { opacity: 0.8; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.3); }
+  }
+
+  #header-controls {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  /* Small screens: hide text labels, show only icons */
+  @media (max-width: 520px) {
+    #header {
+      grid-template-columns: auto 1fr auto;
+      padding: 8px 10px;
+      gap: 8px;
+    }
+    #logo { font-size: 18px; letter-spacing: 2px; }
+    .btn { padding: 8px 10px; font-size: 14px; letter-spacing: 0; }
+    .btn .btn-label { display: none; }
+    #album-art, #album-art-placeholder { width: 34px; height: 34px; font-size: 14px; }
+    #track-name { font-size: 14px; }
+    #track-artist { display: none; }
+  }
+
+  /* ── CANVAS AREA ── */
+  #viz-container {
+    position: relative;
+    overflow: hidden;
+    background: #000;
+  }
+
+  #bg-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  #main-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* ── BOTTOM PANEL ── */
+  #bottom-panel {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 8px 14px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #bottom-panel::-webkit-scrollbar { display: none; }
+
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .control-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.1);
+    outline: none;
+    cursor: pointer;
+  }
+
+  .slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  .slider-val {
+    font-size: 10px;
+    color: var(--accent);
+    min-width: 36px;
+    text-align: right;
+  }
+
+  select {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    background: #1a1a1a;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    cursor: pointer;
+    outline: none;
+  }
+
+  select:focus { border-color: var(--accent); }
+
+  .color-btn {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+
+  .color-btn:hover, .color-btn.active { transform: scale(1.25); border-color: white; }
+
+  /* ── SETTINGS DRAWER ── */
+  #settings-drawer {
+    position: absolute;
+    top: 0; right: 0;
+    width: min(340px, 90vw);
+    height: 100%;
+    background: rgba(10,10,10,0.97);
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    z-index: 20;
+    overflow-y: auto;
+    padding: 20px;
+    backdrop-filter: blur(20px);
+  }
+
+  #settings-drawer.open { transform: translateX(0); }
+
+  #settings-drawer h3 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+
+  .setting-row {
+    margin-bottom: 18px;
+  }
+
+  .setting-row label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .setting-row .slider { width: 100%; }
+
+  .setting-row select { width: 100%; }
+
+  .drawer-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .drawer-close:hover { color: var(--text); }
+
+  /* ── SPOTIFY LOGIN OVERLAY ── */
+  #spotify-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 15;
+    backdrop-filter: blur(8px);
+  }
+
+  #spotify-overlay.hidden { display: none; }
+
+  #spotify-overlay h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    letter-spacing: 4px;
+    color: var(--text);
+  }
+
+  #spotify-overlay p {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-align: center;
+    max-width: 280px;
+    line-height: 1.6;
+  }
+
+  /* ── STATUS BAR ── */
+  #status-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--c1), var(--c2));
+    transform-origin: left;
+    transform: scaleX(0);
+    transition: transform 0.3s;
+  }
+
+  /* ── LIVE INDICATOR ── */
+  #live-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #555;
+    flex-shrink: 0;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+
+  #live-dot.active {
+    background: #ff4444;
+    box-shadow: 0 0 10px #ff4444;
+    animation: blink 1.2s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* ── CONFIG NOTICE ── */
+  #config-notice {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  #config-notice h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(28px, 6vw, 52px);
+    letter-spacing: 6px;
+    color: var(--accent);
+    text-shadow: 0 0 40px var(--accent);
+    margin-bottom: 8px;
+  }
+
+  #config-notice p {
+    font-size: clamp(10px, 1.5vw, 13px);
+    color: var(--muted);
+    letter-spacing: 2px;
+  }
+
+  /* ── DIVIDER ── */
+  .v-divider {
+    width: 1px;
+    height: 28px;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div id="logo">SPECTRA</div>
+
+    <div id="spotify-panel">
+      <div id="album-art-placeholder">♪</div>
+      <img id="album-art" src="" alt="Album Art" crossorigin="anonymous">
+      <div id="track-info">
+        <div id="track-name">NOT CONNECTED</div>
+        <div id="track-artist">Connect Spotify to see what's playing</div>
+        <div id="track-album"></div>
+      </div>
+    </div>
+
+    <div id="header-controls">
+      <div id="live-dot"></div>
+      <button class="btn" id="mic-btn" onclick="toggleMic()">🎙<span class="btn-label"> MIC</span></button>
+      <button class="btn btn-spotify" id="spotify-btn" onclick="spotifyLogin()">●<span class="btn-label"> SPOTIFY</span></button>
+      <button class="btn" onclick="toggleSettings()">⚙<span class="btn-label"> SET</span></button>
+    </div>
+  </div>
+
+  <!-- VISUALIZATION AREA -->
+  <div id="viz-container">
+    <canvas id="bg-canvas"></canvas>
+    <canvas id="main-canvas"></canvas>
+
+    <div id="config-notice">
+      <h2>SPECTRA</h2>
+      <p>TAP MIC TO START VISUALIZER</p>
+    </div>
+
+    <!-- SETTINGS DRAWER -->
+    <div id="settings-drawer">
+      <button class="drawer-close" onclick="toggleSettings()">✕</button>
+      <h3>SETTINGS</h3>
+
+      <div class="setting-row">
+        <label>VISUALIZATION MODE</label>
+        <select id="viz-mode" onchange="updateSettings()">
+          <option value="bars">BARS</option>
+          <option value="mirror">MIRROR BARS</option>
+          <option value="wave">WAVE</option>
+          <option value="radial">RADIAL</option>
+          <option value="blocks">BLOCKS</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <label>COLOR THEME</label>
+        <select id="color-theme" onchange="updateSettings()">
+          <option value="fire">FIRE</option>
+          <option value="ice">ICE</option>
+          <option value="plasma">PLASMA</option>
+          <option value="acid">ACID</option>
+          <option value="mono">MONO</option>
+          <option value="album">ALBUM ART (auto)</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <label>MIN FREQUENCY: <span id="freq-min-val">20</span> Hz</label>
+        <input type="range" class="slider" id="freq-min" min="20" max="500" value="20" oninput="updateFreqMin()">
+      </div>
+
+      <div class="setting-row">
+        <label>MAX FREQUENCY: <span id="freq-max-val">20000</span> Hz</label>
+        <input type="range" class="slider" id="freq-max" min="1000" max="20000" value="20000" oninput="updateFreqMax()">
+      </div>
+
+      <div class="setting-row">
+        <label>NUMBER OF BARS: <span id="bar-count-val">64</span></label>
+        <input type="range" class="slider" id="bar-count" min="8" max="128" value="64" oninput="updateSettings()">
+      </div>
+
+      <div class="setting-row">
+        <label>SMOOTHING: <span id="smoothing-val">0.8</span></label>
+        <input type="range" class="slider" id="smoothing" min="0" max="95" value="80" oninput="updateSettings()">
+      </div>
+
+      <div class="setting-row">
+        <label>GAIN: <span id="gain-val">1.5</span>x</label>
+        <input type="range" class="slider" id="gain" min="5" max="50" value="15" oninput="updateSettings()">
+      </div>
+
+      <div class="setting-row">
+        <label>BAR ROUNDNESS: <span id="round-val">4</span>px</label>
+        <input type="range" class="slider" id="roundness" min="0" max="20" value="4" oninput="updateSettings()">
+      </div>
+
+      <div class="setting-row">
+        <label>PEAK HOLD</label>
+        <select id="peak-hold" onchange="updateSettings()">
+          <option value="on">ON</option>
+          <option value="off">OFF</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <label>BACKGROUND BLUR</label>
+        <select id="bg-blur" onchange="updateSettings()">
+          <option value="on">ON (album art)</option>
+          <option value="off">OFF</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <label>SPOTIFY CLIENT ID (for GitHub Pages)</label>
+        <input type="text" id="spotify-client-id"
+          placeholder="paste your client id here"
+          style="width:100%;background:#1a1a1a;border:1px solid var(--border);border-radius:4px;padding:6px 8px;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;outline:none;"
+          oninput="saveClientId()">
+      </div>
+      <div style="font-size:9px;color:var(--muted);letter-spacing:1px;line-height:1.6;margin-top:-10px;">
+        Get a free Client ID at developer.spotify.com.<br>
+        Set redirect URI to your GitHub Pages URL.
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM CONTROLS -->
+  <div id="bottom-panel">
+    <div class="control-group">
+      <span class="control-label">MODE</span>
+      <select style="font-family:'DM Mono',monospace;font-size:10px;background:#1a1a1a;color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;cursor:pointer;" onchange="document.getElementById('viz-mode').value=this.value;updateSettings()">
+        <option value="bars">BARS</option>
+        <option value="mirror">MIRROR</option>
+        <option value="wave">WAVE</option>
+        <option value="radial">RADIAL</option>
+        <option value="blocks">BLOCKS</option>
+      </select>
+    </div>
+
+    <div class="v-divider"></div>
+
+    <div class="control-group">
+      <span class="control-label">THEME</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <div class="color-btn active" style="background:linear-gradient(135deg,#ff6b35,#f7c59f)" onclick="setTheme('fire',this)" title="Fire"></div>
+        <div class="color-btn" style="background:linear-gradient(135deg,#00d4ff,#0066ff)" onclick="setTheme('ice',this)" title="Ice"></div>
+        <div class="color-btn" style="background:linear-gradient(135deg,#bf00ff,#ff0080)" onclick="setTheme('plasma',this)" title="Plasma"></div>
+        <div class="color-btn" style="background:linear-gradient(135deg,#00ff88,#aaff00)" onclick="setTheme('acid',this)" title="Acid"></div>
+        <div class="color-btn" style="background:linear-gradient(135deg,#fff,#666)" onclick="setTheme('mono',this)" title="Mono"></div>
+        <div class="color-btn" style="background:conic-gradient(#ff6b35,#bf00ff,#00d4ff,#00ff88,#ff6b35)" onclick="setTheme('album',this)" title="Album Auto"></div>
+      </div>
+    </div>
+
+    <div class="v-divider"></div>
+
+    <div class="control-group">
+      <span class="control-label">BARS</span>
+      <input type="range" class="slider" style="width:80px" id="bar-count-quick" min="8" max="128" value="64"
+        oninput="document.getElementById('bar-count').value=this.value;updateSettings()">
+      <span class="slider-val" id="bar-quick-val">64</span>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">GAIN</span>
+      <input type="range" class="slider" style="width:80px" id="gain-quick" min="5" max="50" value="15"
+        oninput="document.getElementById('gain').value=this.value;updateSettings()">
+    </div>
+
+    <div class="v-divider"></div>
+
+    <div class="control-group" style="margin-left:auto">
+      <span id="freq-display" style="font-size:9px;color:var(--muted);letter-spacing:1px;">20 Hz — 20 kHz</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG — replace these when deploying to GitHub Pages
+// ═══════════════════════════════════════════════
+const CONFIG = {
+  SPOTIFY_CLIENT_ID: localStorage.getItem('spotify_client_id') || 'YOUR_CLIENT_ID_HERE',
+  REDIRECT_URI: window.location.origin + window.location.pathname,
+  SCOPES: 'user-read-currently-playing user-read-playback-state',
+};
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+const state = {
+  micActive: false,
+  audioCtx: null,
+  analyser: null,
+  stream: null,
+  animFrame: null,
+  spotifyToken: null,
+  spotifyInterval: null,
+  currentTrack: null,
+  vizMode: 'bars',
+  colorTheme: 'fire',
+  freqMin: 20,
+  freqMax: 20000,
+  barCount: 64,
+  smoothing: 0.8,
+  gain: 1.5,
+  roundness: 4,
+  peakHold: true,
+  bgBlur: true,
+  peaks: [],
+  peakTimers: [],
+  bars: [],
+  albumColors: ['#ff6b35', '#f7c59f'],
+  settingsOpen: false,
+  configVisible: true,
+};
+
+// ═══════════════════════════════════════════════
+// THEMES
+// ═══════════════════════════════════════════════
+const THEMES = {
+  fire:   { stops: ['#1a0500','#8b1a00','#ff4500','#ff8c00','#ffd700','#ffffff'], accent: '#ff6b35', bg: '#080400' },
+  ice:    { stops: ['#000d1a','#003366','#0066cc','#00aaff','#66ddff','#ffffff'], accent: '#00d4ff', bg: '#000810' },
+  plasma: { stops: ['#0d0020','#4a0080','#9900cc','#ff00cc','#ff66ff','#ffffff'], accent: '#cc00ff', bg: '#080010' },
+  acid:   { stops: ['#001a00','#004d00','#00cc00','#66ff00','#ccff00','#ffffff'], accent: '#00ff88', bg: '#000800' },
+  mono:   { stops: ['#111111','#333333','#666666','#999999','#cccccc','#ffffff'], accent: '#cccccc', bg: '#050505' },
+  album:  { stops: ['#1a0500','#8b1a00','#ff4500','#ff8c00','#ffd700','#ffffff'], accent: '#ff6b35', bg: '#080400' },
+};
+
+// ═══════════════════════════════════════════════
+// CANVAS SETUP
+// ═══════════════════════════════════════════════
+const bgCanvas = document.getElementById('bg-canvas');
+const mainCanvas = document.getElementById('main-canvas');
+const bgCtx = bgCanvas.getContext('2d');
+const mainCtx = mainCanvas.getContext('2d');
+
+function resizeCanvases() {
+  const container = document.getElementById('viz-container');
+  const W = container.clientWidth;
+  const H = container.clientHeight;
+  bgCanvas.width = mainCanvas.width = W;
+  bgCanvas.height = mainCanvas.height = H;
+}
+
+window.addEventListener('resize', () => { resizeCanvases(); });
+resizeCanvases();
+
+// ═══════════════════════════════════════════════
+// COLOR INTERPOLATION
+// ═══════════════════════════════════════════════
+function hexToRgb(hex) {
+  const n = parseInt(hex.replace('#',''), 16);
+  return [(n>>16)&255, (n>>8)&255, n&255];
+}
+
+function lerpColor(stops, t) {
+  t = Math.max(0, Math.min(1, t));
+  const scaled = t * (stops.length - 1);
+  const lo = Math.floor(scaled);
+  const hi = Math.min(lo + 1, stops.length - 1);
+  const f = scaled - lo;
+  const c0 = hexToRgb(stops[lo]);
+  const c1 = hexToRgb(stops[hi]);
+  return `rgb(${Math.round(c0[0]+(c1[0]-c0[0])*f)},${Math.round(c0[1]+(c1[1]-c0[1])*f)},${Math.round(c0[2]+(c1[2]-c0[2])*f)})`;
+}
+
+function getBarColor(mag) {
+  const theme = THEMES[state.colorTheme];
+  return lerpColor(theme.stops, mag);
+}
+
+// ═══════════════════════════════════════════════
+// BACKGROUND DRAW
+// ═══════════════════════════════════════════════
+let bgImage = null;
+let bgImageUrl = '';
+
+function drawBackground() {
+  const W = bgCanvas.width, H = bgCanvas.height;
+  bgCtx.clearRect(0, 0, W, H);
+
+  const theme = THEMES[state.colorTheme];
+  bgCtx.fillStyle = theme.bg;
+  bgCtx.fillRect(0, 0, W, H);
+
+  if (state.bgBlur && bgImage && state.currentTrack) {
+    bgCtx.save();
+    bgCtx.filter = 'blur(40px) brightness(0.18) saturate(1.5)';
+    const scale = Math.max(W / bgImage.width, H / bgImage.height) * 1.1;
+    const sw = bgImage.width * scale;
+    const sh = bgImage.height * scale;
+    bgCtx.drawImage(bgImage, (W - sw) / 2, (H - sh) / 2, sw, sh);
+    bgCtx.filter = 'none';
+    bgCtx.restore();
+  }
+
+  // Vignette
+  const grad = bgCtx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H)*0.7);
+  grad.addColorStop(0, 'rgba(0,0,0,0)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.7)');
+  bgCtx.fillStyle = grad;
+  bgCtx.fillRect(0, 0, W, H);
+}
+
+// ═══════════════════════════════════════════════
+// MAIN DRAW LOOP
+// ═══════════════════════════════════════════════
+function draw() {
+  state.animFrame = requestAnimationFrame(draw);
+  const W = mainCanvas.width, H = mainCanvas.height;
+  const theme = THEMES[state.colorTheme];
+  const N = state.barCount;
+
+  // Get audio data
+  let rawBars = new Float32Array(N).fill(0);
+  if (state.analyser) {
+    const freqData = new Float32Array(state.analyser.frequencyBinCount);
+    state.analyser.getFloatFrequencyData(freqData);
+
+    const nyquist = state.audioCtx.sampleRate / 2;
+    const binHz = nyquist / freqData.length;
+    const minBin = Math.max(0, Math.floor(state.freqMin / binHz));
+    const maxBin = Math.min(freqData.length - 1, Math.ceil(state.freqMax / binHz));
+    const binRange = maxBin - minBin;
+
+    for (let i = 0; i < N; i++) {
+      const startBin = minBin + Math.floor((i / N) * binRange);
+      const endBin = minBin + Math.floor(((i + 1) / N) * binRange);
+      let max = -Infinity;
+      for (let b = startBin; b <= endBin; b++) max = Math.max(max, freqData[b]);
+      const db = Math.max(-90, max * state.gain);
+      rawBars[i] = Math.max(0, Math.min(1, (db + 90) / 80));
+    }
+  }
+
+  // Smooth
+  if (state.bars.length !== N) { state.bars = new Array(N).fill(0); state.peaks = new Array(N).fill(0); state.peakTimers = new Array(N).fill(0); }
+  for (let i = 0; i < N; i++) {
+    state.bars[i] = state.bars[i] * state.smoothing + rawBars[i] * (1 - state.smoothing);
+    if (state.peakHold) {
+      if (state.bars[i] >= state.peaks[i]) { state.peaks[i] = state.bars[i]; state.peakTimers[i] = 60; }
+      else { state.peakTimers[i]--; if (state.peakTimers[i] <= 0) state.peaks[i] = Math.max(0, state.peaks[i] - 0.012); }
+    }
+  }
+
+  drawBackground();
+  mainCtx.clearRect(0, 0, W, H);
+
+  switch (state.vizMode) {
+    case 'bars': drawBars(W, H, N, false); break;
+    case 'mirror': drawBars(W, H, N, true); break;
+    case 'wave': drawWave(W, H, N); break;
+    case 'radial': drawRadial(W, H, N); break;
+    case 'blocks': drawBlocks(W, H, N); break;
+  }
+}
+
+// ── BAR RENDERER ──
+function drawBars(W, H, N, mirror) {
+  const barW = W / N;
+  const gap = Math.max(1, barW * 0.12);
+  const r = state.roundness;
+  const theme = THEMES[state.colorTheme];
+
+  for (let i = 0; i < N; i++) {
+    const mag = state.bars[i];
+    const x = i * barW + gap / 2;
+    const bw = barW - gap;
+    const bh = mirror ? mag * (H / 2) : mag * H;
+    const y = mirror ? H / 2 - bh : H - bh;
+    const color = getBarColor(mag);
+
+    mainCtx.shadowColor = color;
+    mainCtx.shadowBlur = mag > 0.5 ? 18 : 6;
+    mainCtx.fillStyle = color;
+
+    if (r > 0 && bh > r * 2) {
+      mainCtx.beginPath();
+      mainCtx.roundRect(x, y, bw, bh, [r, r, 0, 0]);
+      mainCtx.fill();
+    } else if (bh > 0) {
+      mainCtx.fillRect(x, y, bw, bh);
+    }
+
+    if (mirror && bh > 0) {
+      const color2 = getBarColor(mag * 0.7);
+      mainCtx.fillStyle = color2;
+      mainCtx.shadowColor = color2;
+      if (r > 0 && bh > r * 2) {
+        mainCtx.beginPath();
+        mainCtx.roundRect(x, H / 2, bw, bh, [0, 0, r, r]);
+        mainCtx.fill();
+      } else {
+        mainCtx.fillRect(x, H / 2, bw, bh);
+      }
+    }
+
+    mainCtx.shadowBlur = 0;
+
+    // Peak dot
+    if (state.peakHold && state.peaks[i] > 0.02) {
+      const peakY = mirror ? H / 2 - state.peaks[i] * (H / 2) - 2 : H - state.peaks[i] * H - 2;
+      mainCtx.fillStyle = '#ffffff';
+      mainCtx.shadowColor = '#ffffff';
+      mainCtx.shadowBlur = 6;
+      mainCtx.fillRect(x, peakY, bw, 2);
+      mainCtx.shadowBlur = 0;
+    }
+  }
+
+  // Center line for mirror
+  if (mirror) {
+    mainCtx.fillStyle = 'rgba(255,255,255,0.08)';
+    mainCtx.fillRect(0, H / 2 - 1, W, 2);
+  }
+
+  // Highlight dominant bar
+  const domIdx = state.bars.indexOf(Math.max(...state.bars));
+  if (state.bars[domIdx] > 0.1) {
+    const x = domIdx * barW + gap / 2;
+    const bw = barW - gap;
+    const bh = mirror ? state.bars[domIdx] * (H / 2) : state.bars[domIdx] * H;
+    const y = mirror ? H / 2 - bh : H - bh;
+    mainCtx.strokeStyle = '#ffffff';
+    mainCtx.lineWidth = 1.5;
+    mainCtx.shadowColor = '#ffffff';
+    mainCtx.shadowBlur = 15;
+    mainCtx.strokeRect(x, y, bw, bh);
+    mainCtx.shadowBlur = 0;
+  }
+}
+
+// ── WAVE RENDERER ──
+function drawWave(W, H, N) {
+  const theme = THEMES[state.colorTheme];
+  const mid = H / 2;
+
+  // Fill area
+  mainCtx.beginPath();
+  mainCtx.moveTo(0, mid);
+  for (let i = 0; i < N; i++) {
+    const x = (i / N) * W;
+    const y = mid - state.bars[i] * mid * 0.9;
+    i === 0 ? mainCtx.moveTo(x, y) : mainCtx.lineTo(x, y);
+  }
+  mainCtx.lineTo(W, mid);
+  mainCtx.closePath();
+  const grad = mainCtx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, lerpColor(THEMES[state.colorTheme].stops, 0.9) + 'aa');
+  grad.addColorStop(1, 'transparent');
+  mainCtx.fillStyle = grad;
+  mainCtx.fill();
+
+  // Line
+  mainCtx.beginPath();
+  mainCtx.lineWidth = 2.5;
+  for (let i = 0; i < N; i++) {
+    const x = (i / N) * W;
+    const y = mid - state.bars[i] * mid * 0.9;
+    i === 0 ? mainCtx.moveTo(x, y) : mainCtx.lineTo(x, y);
+  }
+  mainCtx.strokeStyle = theme.accent;
+  mainCtx.shadowColor = theme.accent;
+  mainCtx.shadowBlur = 12;
+  mainCtx.stroke();
+
+  // Mirror
+  mainCtx.beginPath();
+  mainCtx.lineWidth = 1.5;
+  for (let i = 0; i < N; i++) {
+    const x = (i / N) * W;
+    const y = mid + state.bars[i] * mid * 0.9;
+    i === 0 ? mainCtx.moveTo(x, y) : mainCtx.lineTo(x, y);
+  }
+  mainCtx.strokeStyle = lerpColor(THEMES[state.colorTheme].stops, 0.5) + '88';
+  mainCtx.shadowBlur = 6;
+  mainCtx.stroke();
+  mainCtx.shadowBlur = 0;
+}
+
+// ── RADIAL RENDERER ──
+function drawRadial(W, H, N) {
+  const cx = W / 2, cy = H / 2;
+  const baseR = Math.min(W, H) * 0.2;
+  const maxR = Math.min(W, H) * 0.42;
+  const theme = THEMES[state.colorTheme];
+
+  // Glow core
+  const coreGrad = mainCtx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 0.8);
+  coreGrad.addColorStop(0, theme.accent + '44');
+  coreGrad.addColorStop(1, 'transparent');
+  mainCtx.fillStyle = coreGrad;
+  mainCtx.beginPath();
+  mainCtx.arc(cx, cy, baseR * 0.8, 0, Math.PI * 2);
+  mainCtx.fill();
+
+  for (let i = 0; i < N; i++) {
+    const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
+    const mag = state.bars[i];
+    const len = mag * (maxR - baseR);
+    const x1 = cx + Math.cos(angle) * baseR;
+    const y1 = cy + Math.sin(angle) * baseR;
+    const x2 = cx + Math.cos(angle) * (baseR + len);
+    const y2 = cy + Math.sin(angle) * (baseR + len);
+    const color = getBarColor(mag);
+
+    mainCtx.beginPath();
+    mainCtx.moveTo(x1, y1);
+    mainCtx.lineTo(x2, y2);
+    mainCtx.lineWidth = Math.max(1.5, (W / N) * 0.6);
+    mainCtx.strokeStyle = color;
+    mainCtx.shadowColor = color;
+    mainCtx.shadowBlur = mag > 0.5 ? 16 : 4;
+    mainCtx.lineCap = 'round';
+    mainCtx.stroke();
+
+    // Mirror inner
+    const x3 = cx - Math.cos(angle) * (baseR + len * 0.4);
+    const y3 = cy - Math.sin(angle) * (baseR + len * 0.4);
+    mainCtx.beginPath();
+    mainCtx.moveTo(cx - Math.cos(angle) * baseR, cy - Math.sin(angle) * baseR);
+    mainCtx.lineTo(x3, y3);
+    mainCtx.lineWidth = Math.max(1, (W / N) * 0.3);
+    mainCtx.strokeStyle = lerpColor(THEMES[state.colorTheme].stops, mag * 0.6) + '66';
+    mainCtx.shadowBlur = 3;
+    mainCtx.stroke();
+  }
+  mainCtx.shadowBlur = 0;
+
+  // Base circle
+  mainCtx.beginPath();
+  mainCtx.arc(cx, cy, baseR, 0, Math.PI * 2);
+  mainCtx.strokeStyle = theme.accent + '44';
+  mainCtx.lineWidth = 1;
+  mainCtx.stroke();
+}
+
+// ── BLOCKS RENDERER ──
+function drawBlocks(W, H, N) {
+  const rows = 16;
+  const barW = W / N;
+  const blockH = H / rows;
+  const gap = 2;
+
+  for (let i = 0; i < N; i++) {
+    const mag = state.bars[i];
+    const filledRows = Math.round(mag * rows);
+    for (let r = 0; r < filledRows; r++) {
+      const x = i * barW + gap / 2;
+      const y = H - (r + 1) * blockH + gap / 2;
+      const t = r / rows;
+      const color = getBarColor(t);
+      mainCtx.fillStyle = color;
+      mainCtx.shadowColor = color;
+      mainCtx.shadowBlur = r > rows * 0.7 ? 10 : 2;
+      mainCtx.fillRect(x, y, barW - gap, blockH - gap);
+    }
+  }
+  mainCtx.shadowBlur = 0;
+}
+
+// ═══════════════════════════════════════════════
+// MIC
+// ═══════════════════════════════════════════════
+async function toggleMic() {
+  if (state.micActive) {
+    stopMic();
+  } else {
+    await startMic();
+  }
+}
+
+async function startMic() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }, video: false });
+    state.stream = stream;
+    state.audioCtx = new AudioContext();
+    state.analyser = state.audioCtx.createAnalyser();
+    state.analyser.fftSize = 4096;
+    state.analyser.smoothingTimeConstant = 0;
+    const src = state.audioCtx.createMediaStreamSource(stream);
+    src.connect(state.analyser);
+    state.micActive = true;
+    document.getElementById('mic-btn').classList.add('active');
+    document.getElementById('mic-btn').innerHTML = '🔴<span class="btn-label"> MIC</span>';
+    document.getElementById('live-dot').classList.add('active');
+    document.getElementById('config-notice').style.display = 'none';
+    if (!state.animFrame) draw();
+  } catch (e) {
+    alert('Microphone access denied.');
+  }
+}
+
+function stopMic() {
+  if (state.stream) state.stream.getTracks().forEach(t => t.stop());
+  if (state.animFrame) { cancelAnimationFrame(state.animFrame); state.animFrame = null; }
+  state.micActive = false;
+  state.analyser = null;
+  state.audioCtx = null;
+  document.getElementById('mic-btn').classList.remove('active');
+  document.getElementById('mic-btn').innerHTML = '🎙<span class="btn-label"> MIC</span>';
+  document.getElementById('live-dot').classList.remove('active');
+  document.getElementById('config-notice').style.display = 'block';
+  // Clear canvases
+  mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+  bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+}
+
+// ═══════════════════════════════════════════════
+// SPOTIFY OAUTH (PKCE)
+// ═══════════════════════════════════════════════
+function generateCodeVerifier(length = 128) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
+  let v = '';
+  const arr = new Uint8Array(length);
+  crypto.getRandomValues(arr);
+  arr.forEach(b => v += chars[b % chars.length]);
+  return v;
+}
+
+async function generateCodeChallenge(verifier) {
+  const data = new TextEncoder().encode(verifier);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+async function spotifyLogin() {
+  const clientId = localStorage.getItem('spotify_client_id') || CONFIG.SPOTIFY_CLIENT_ID;
+  if (!clientId || clientId === 'YOUR_CLIENT_ID_HERE') {
+    toggleSettings();
+    setTimeout(() => {
+      document.getElementById('spotify-client-id').focus();
+      document.getElementById('spotify-client-id').style.borderColor = '#ff4444';
+      setTimeout(() => document.getElementById('spotify-client-id').style.borderColor = '', 2000);
+    }, 400);
+    alert('Please enter your Spotify Client ID in Settings first.');
+    return;
+  }
+
+  const verifier = generateCodeVerifier();
+  const challenge = await generateCodeChallenge(verifier);
+  localStorage.setItem('pkce_verifier', verifier);
+
+  const params = new URLSearchParams({
+    client_id: clientId,
+    response_type: 'code',
+    redirect_uri: CONFIG.REDIRECT_URI,
+    scope: CONFIG.SCOPES,
+    code_challenge_method: 'S256',
+    code_challenge: challenge,
+  });
+
+  window.location = `https://accounts.spotify.com/authorize?${params}`;
+}
+
+async function handleSpotifyCallback() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  if (!code) return;
+
+  // Clean URL
+  window.history.replaceState({}, '', window.location.pathname);
+
+  const verifier = localStorage.getItem('pkce_verifier');
+  const clientId = localStorage.getItem('spotify_client_id') || CONFIG.SPOTIFY_CLIENT_ID;
+
+  try {
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: CONFIG.REDIRECT_URI,
+        code_verifier: verifier,
+      }),
+    });
+    const data = await res.json();
+    if (data.access_token) {
+      state.spotifyToken = data.access_token;
+      localStorage.setItem('spotify_token', data.access_token);
+      localStorage.setItem('spotify_refresh', data.refresh_token);
+      localStorage.setItem('spotify_expires', Date.now() + data.expires_in * 1000);
+      startSpotifyPolling();
+    }
+  } catch (e) { console.error('Spotify auth error', e); }
+}
+
+async function refreshSpotifyToken() {
+  const clientId = localStorage.getItem('spotify_client_id') || CONFIG.SPOTIFY_CLIENT_ID;
+  const refreshToken = localStorage.getItem('spotify_refresh');
+  if (!refreshToken) return;
+  try {
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken, client_id: clientId }),
+    });
+    const data = await res.json();
+    if (data.access_token) {
+      state.spotifyToken = data.access_token;
+      localStorage.setItem('spotify_token', data.access_token);
+      localStorage.setItem('spotify_expires', Date.now() + data.expires_in * 1000);
+    }
+  } catch (e) { console.error('Token refresh error', e); }
+}
+
+async function fetchCurrentTrack() {
+  if (!state.spotifyToken) return;
+
+  const expires = parseInt(localStorage.getItem('spotify_expires') || '0');
+  if (Date.now() > expires - 60000) await refreshSpotifyToken();
+
+  try {
+    const res = await fetch('https://api.spotify.com/v1/me/player/currently-playing', {
+      headers: { Authorization: `Bearer ${state.spotifyToken}` },
+    });
+
+    if (res.status === 204 || res.status === 404) {
+      updateTrackUI(null);
+      return;
+    }
+
+    const data = await res.json();
+    if (data && data.item) {
+      const track = {
+        name: data.item.name,
+        artist: data.item.artists.map(a => a.name).join(', '),
+        album: data.item.album.name,
+        art: data.item.album.images[0]?.url || '',
+        isPlaying: data.is_playing,
+      };
+      updateTrackUI(track);
+    }
+  } catch (e) { console.error('Spotify fetch error', e); }
+}
+
+function updateTrackUI(track) {
+  const nameEl = document.getElementById('track-name');
+  const artistEl = document.getElementById('track-artist');
+  const albumEl = document.getElementById('track-album');
+  const artEl = document.getElementById('album-art');
+  const placeholderEl = document.getElementById('album-art-placeholder');
+
+  if (!track) {
+    nameEl.textContent = 'NOTHING PLAYING';
+    artistEl.textContent = 'Spotify connected';
+    albumEl.textContent = '';
+    artEl.classList.remove('visible');
+    placeholderEl.style.display = 'flex';
+    return;
+  }
+
+  const prev = state.currentTrack;
+  state.currentTrack = track;
+
+  nameEl.textContent = track.name.toUpperCase();
+  artistEl.textContent = track.artist;
+  albumEl.textContent = track.album;
+
+  if (track.art && track.art !== prev?.art) {
+    artEl.src = track.art;
+    artEl.onload = () => {
+      artEl.classList.add('visible');
+      placeholderEl.style.display = 'none';
+      if (state.colorTheme === 'album') extractAlbumColors(artEl);
+    };
+    bgImageUrl = track.art;
+    bgImage = new Image();
+    bgImage.crossOrigin = 'anonymous';
+    bgImage.src = track.art;
+  }
+
+  // Update spotify btn
+  document.getElementById('spotify-btn').innerHTML = track.isPlaying ? '▶<span class="btn-label"> SPOTIFY</span>' : '⏸<span class="btn-label"> SPOTIFY</span>';
+}
+
+function extractAlbumColors(img) {
+  try {
+    const c = document.createElement('canvas');
+    c.width = c.height = 8;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, 8, 8);
+    const d = ctx.getImageData(0, 0, 8, 8).data;
+    let r=0,g=0,b=0,count=0;
+    for (let i=0;i<d.length;i+=4) { r+=d[i];g+=d[i+1];b+=d[i+2];count++; }
+    r=Math.round(r/count); g=Math.round(g/count); b=Math.round(b/count);
+    const hex = `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+    const light = `#${Math.min(255,r+100).toString(16).padStart(2,'0')}${Math.min(255,g+100).toString(16).padStart(2,'0')}${Math.min(255,b+100).toString(16).padStart(2,'0')}`;
+    THEMES.album.stops = ['#050505', hex, hex, light, '#ffffff'];
+    THEMES.album.accent = light;
+    document.documentElement.style.setProperty('--accent', light);
+    document.documentElement.style.setProperty('--c1', hex);
+  } catch(e) {}
+}
+
+function startSpotifyPolling() {
+  document.getElementById('spotify-btn').innerHTML = '●<span class="btn-label"> SPOTIFY</span>';
+  fetchCurrentTrack();
+  if (state.spotifyInterval) clearInterval(state.spotifyInterval);
+  state.spotifyInterval = setInterval(fetchCurrentTrack, 5000);
+}
+
+// ═══════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════
+function updateSettings() {
+  state.vizMode = document.getElementById('viz-mode').value;
+  state.colorTheme = document.getElementById('color-theme').value;
+  state.barCount = parseInt(document.getElementById('bar-count').value);
+  state.smoothing = parseInt(document.getElementById('smoothing').value) / 100;
+  state.gain = parseInt(document.getElementById('gain').value) / 10;
+  state.roundness = parseInt(document.getElementById('roundness').value);
+  state.peakHold = document.getElementById('peak-hold').value === 'on';
+  state.bgBlur = document.getElementById('bg-blur').value === 'on';
+
+  // Update displays
+  document.getElementById('bar-count-val').textContent = state.barCount;
+  document.getElementById('smoothing-val').textContent = state.smoothing.toFixed(2);
+  document.getElementById('gain-val').textContent = state.gain.toFixed(1);
+  document.getElementById('round-val').textContent = state.roundness;
+  document.getElementById('bar-quick-val').textContent = state.barCount;
+  document.getElementById('bar-count-quick').value = state.barCount;
+
+  const theme = THEMES[state.colorTheme];
+  document.documentElement.style.setProperty('--accent', theme.accent);
+
+  // Sync mode dropdowns
+  const modeEl = document.getElementById('viz-mode');
+  document.querySelectorAll('#bottom-panel select').forEach(s => {
+    if ([...s.options].some(o => o.value === state.vizMode)) s.value = state.vizMode;
+  });
+
+  document.getElementById('freq-display').textContent = `${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;
+}
+
+function updateFreqMin() {
+  state.freqMin = parseInt(document.getElementById('freq-min').value);
+  document.getElementById('freq-min-val').textContent = state.freqMin;
+  document.getElementById('freq-display').textContent = `${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;
+}
+
+function updateFreqMax() {
+  state.freqMax = parseInt(document.getElementById('freq-max').value);
+  document.getElementById('freq-max-val').textContent = state.freqMax;
+  document.getElementById('freq-display').textContent = `${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;
+}
+
+function setTheme(theme, el) {
+  state.colorTheme = theme;
+  document.getElementById('color-theme').value = theme;
+  document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const t = THEMES[theme];
+  document.documentElement.style.setProperty('--accent', t.accent);
+}
+
+function toggleSettings() {
+  state.settingsOpen = !state.settingsOpen;
+  document.getElementById('settings-drawer').classList.toggle('open', state.settingsOpen);
+}
+
+function saveClientId() {
+  const val = document.getElementById('spotify-client-id').value.trim();
+  if (val) localStorage.setItem('spotify_client_id', val);
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+function init() {
+  // Load saved client ID
+  const savedId = localStorage.getItem('spotify_client_id');
+  if (savedId) document.getElementById('spotify-client-id').value = savedId;
+
+  // Check for Spotify callback
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('code')) {
+    handleSpotifyCallback();
+  } else {
+    // Try existing token
+    const token = localStorage.getItem('spotify_token');
+    const expires = parseInt(localStorage.getItem('spotify_expires') || '0');
+    if (token && Date.now() < expires) {
+      state.spotifyToken = token;
+      startSpotifyPolling();
+    }
+  }
+}
+
+// Start background draw loop always (even without mic)
+draw();
+init();
+</script>
+</body>
+</html>
