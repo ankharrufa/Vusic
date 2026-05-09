@@ -60,7 +60,11 @@
 
   /* ── CANVAS ── */
   #viz-container { position:relative; overflow:hidden; background:#000; }
-  #bg-canvas, #main-canvas { position:absolute; inset:0; width:100%; height:100%; }
+  #bg-canvas, #main-canvas { position:absolute; inset:0; width:100%; height:100%; z-index:1; }
+
+  /* When settings open, let clicks pass through canvas to drawer */
+  #viz-container.settings-open #bg-canvas,
+  #viz-container.settings-open #main-canvas { pointer-events:none; }
 
   /* ── BOTTOM BAR ── */
   #bottom-panel { background:var(--surface); border-top:1px solid var(--border); padding:8px 14px; display:flex; gap:14px; align-items:center; flex-shrink:0; overflow-x:auto; overflow-y:hidden; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
@@ -89,7 +93,7 @@
     border-left:1px solid var(--border);
     transform:translateX(100%);
     transition:transform 0.3s ease;
-    z-index:20; overflow-y:auto;
+    z-index:30; overflow-y:auto;
     padding:16px 16px 32px;
     backdrop-filter:blur(20px);
     -webkit-overflow-scrolling:touch;
@@ -424,11 +428,12 @@ const mainCtx = mainCanvas.getContext('2d');
 
 function resizeCanvases() {
   const c = document.getElementById('viz-container');
-  bgCanvas.width = mainCanvas.width = c.clientWidth;
-  bgCanvas.height = mainCanvas.height = c.clientHeight;
+  const W = c.clientWidth || window.innerWidth;
+  const H = c.clientHeight || window.innerHeight * 0.7;
+  bgCanvas.width = mainCanvas.width = W;
+  bgCanvas.height = mainCanvas.height = H;
 }
 window.addEventListener('resize', resizeCanvases);
-resizeCanvases();
 
 // ── COLOR ──
 function hexToRgb(hex) { const n=parseInt(hex.replace('#',''),16); return [(n>>16)&255,(n>>8)&255,n&255]; }
@@ -487,7 +492,8 @@ function draw() {
       db = Math.max(0, db - noiseDb);
       // Normalize 0-1 with yScale power curve
       let norm = db / 80;
-      norm = Math.pow(Math.max(0,Math.min(1,norm)), 1/state.yScale);
+      const ys = Math.max(0.1, state.yScale);
+      norm = Math.pow(Math.max(0,Math.min(1,norm)), 1/ys);
       raw[i] = Math.min(1, norm);
     }
   }
@@ -738,7 +744,6 @@ function updateTrackUI(track) {
   if(track.art&&track.art!==prev?.art){
     const fsArt=document.getElementById('fs-art');
     fsArt.src=track.art; fsArt.onload=()=>fsArt.classList.add('visible');
-  }
     artEl.src=track.art;
     artEl.onload=()=>{artEl.classList.add('visible');phEl.style.display='none';if(state.colorTheme==='album')extractAlbumColors(artEl);};
     bgImage=new Image(); bgImage.crossOrigin='anonymous'; bgImage.src=track.art;
@@ -813,11 +818,6 @@ function toggleFullscreen() {
   }
 }
 
-// Tap canvas to exit fullscreen
-document.getElementById('main-canvas').addEventListener('click', () => {
-  if (fsActive) toggleFullscreen();
-});
-
 function setToggle(key, val) {
   state[key]=val;
   if(key==='peakHold'){
@@ -841,6 +841,7 @@ function setTheme(theme,el) {
 function toggleSettings() {
   state.settingsOpen=!state.settingsOpen;
   document.getElementById('settings-drawer').classList.toggle('open',state.settingsOpen);
+  document.getElementById('viz-container').classList.toggle('settings-open',state.settingsOpen);
 }
 
 function saveClientId() {
@@ -860,8 +861,14 @@ function init() {
   }
 }
 
-draw();
-init();
+document.addEventListener('DOMContentLoaded', () => {
+  resizeCanvases();
+  draw();
+  init();
+  document.getElementById('main-canvas').addEventListener('click', () => {
+    if (fsActive) toggleFullscreen();
+  });
+});
 </script>
 </body>
 </html>
