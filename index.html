@@ -652,7 +652,7 @@ function drawBackground() {
 
 // Center frequency of bar i (no FFT data needed)
 function barCenterHz(i, N) {
-  const fMin = Math.max(1, state.freqMin), fMax = state.freqMax;
+  const fMin = Math.max(1, state.freqMin), fMax = Math.min(state.freqMax, state.nyquist || state.freqMax);
   if (state.freqScale === 'log') {
     const lMin = Math.log2(fMin), lMax = Math.log2(fMax);
     return Math.pow(2, lMin + ((i+0.5)/N)*(lMax-lMin));
@@ -666,7 +666,7 @@ function barCenterHz(i, N) {
 
 // Maps bar index i (0…N-1) to FFT bin range {s2,e2} using state.freqScale
 function freqBins(i, N, binHz, binCount) {
-  const fMin = Math.max(1, state.freqMin), fMax = state.freqMax;
+  const fMin = Math.max(1, state.freqMin), fMax = Math.min(state.freqMax, (binCount - 1) * binHz);
   let f0, f1;
   if (state.freqScale === 'log') {
     const lMin = Math.log2(fMin), lMax = Math.log2(fMax);
@@ -930,6 +930,7 @@ async function startMic() {
     state.analyser=state.audioCtx.createAnalyser();
     state.analyser.fftSize=4096; state.analyser.smoothingTimeConstant=0;
     state.audioCtx.createMediaStreamSource(stream).connect(state.analyser);
+    state.nyquist = state.audioCtx.sampleRate / 2;
     state.micActive=true;
     document.getElementById('mic-btn').classList.add('active');
     document.getElementById('mic-btn').innerHTML='🔴<span class="btn-label"> MIC</span>';
@@ -1389,7 +1390,7 @@ function initGestures() {
           const fEl = document.getElementById('freqmin'); if (fEl) fEl.value = v;
           showHud('MIN FREQ', v+' Hz');
         } else {
-          const v = clamp(Math.round(gest.startVals.freqMax + dx/280*15000), 5000, 20000);
+          const v = clamp(Math.round(gest.startVals.freqMax + dx/280*35000), 5000, 35000);
           state.freqMax = v;
           const fEl = document.getElementById('freqmax'); if (fEl) fEl.value = v;
           showHud('MAX FREQ', (v/1000).toFixed(1)+' kHz');
