@@ -110,14 +110,37 @@
   .setting-section { font-size:9px; letter-spacing:3px; color:var(--accent); text-transform:uppercase; margin:20px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
 
   /* Touch-friendly setting rows */
-  .setting-row { margin-bottom:20px; }
-  .setting-row label { display:flex; justify-content:space-between; align-items:center; font-size:11px; letter-spacing:1px; color:var(--muted); margin-bottom:10px; }
-  .setting-row label span { font-size:14px; color:var(--text); font-weight:500; }
+  .setting-row { margin-bottom:16px; }
+  .setting-row label { display:block; font-size:10px; letter-spacing:2px; color:var(--muted); margin-bottom:8px; text-transform:uppercase; }
 
-  /* Big touch sliders */
-  .touch-slider { -webkit-appearance:none; appearance:none; width:100%; height:6px; border-radius:3px; background:rgba(255,255,255,0.1); outline:none; cursor:pointer; }
-  .touch-slider::-webkit-slider-thumb { -webkit-appearance:none; width:28px; height:28px; border-radius:50%; background:var(--accent); cursor:pointer; box-shadow:0 0 12px var(--accent), 0 2px 8px rgba(0,0,0,0.5); border:2px solid rgba(255,255,255,0.2); }
-  .touch-slider::-moz-range-thumb { width:28px; height:28px; border-radius:50%; background:var(--accent); cursor:pointer; box-shadow:0 0 12px var(--accent); border:2px solid rgba(255,255,255,0.2); }
+  /* ── STEPPER CONTROL ── */
+  .stepper {
+    display:flex; align-items:center; gap:0;
+    background:#1a1a1a; border:1px solid var(--border);
+    border-radius:8px; overflow:hidden; height:52px;
+  }
+  .stepper-btn {
+    width:56px; min-width:56px; height:100%;
+    background:rgba(255,255,255,0.04);
+    border:none; color:var(--text);
+    font-size:22px; font-family:'DM Mono',monospace;
+    cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:background 0.1s; -webkit-tap-highlight-color:transparent;
+    flex-shrink:0;
+  }
+  .stepper-btn:active, .stepper-btn.holding { background:var(--accent); color:#000; }
+  .stepper-sep { width:1px; background:var(--border); height:60%; flex-shrink:0; }
+  .stepper-input {
+    flex:1; background:transparent; border:none; outline:none;
+    color:var(--text); font-family:'Bebas Neue',sans-serif;
+    font-size:22px; text-align:center; padding:0 4px;
+    min-width:0; cursor:text;
+  }
+  .stepper-input:focus { color:var(--accent); }
+  .stepper-unit {
+    font-size:10px; color:var(--muted); padding-right:12px;
+    letter-spacing:1px; flex-shrink:0; white-space:nowrap;
+  }
 
   /* Toggle buttons (instead of selects for boolean) */
   .toggle-row { display:flex; gap:8px; }
@@ -239,8 +262,8 @@
     <!-- SETTINGS DRAWER -->
     <div id="settings-drawer">
       <button class="drawer-close" onclick="toggleSettings()">✕</button>
-      <h3>SETTINGS</h3>
-      <div class="drawer-subtitle">SWIPE DOWN TO SCROLL</div>
+      <h3>VUSIC</h3>
+      <div class="drawer-subtitle">SETTINGS — SCROLL TO SEE ALL</div>
 
       <!-- VIZ MODE -->
       <div class="setting-section">VISUALIZATION</div>
@@ -269,7 +292,7 @@
       </div>
 
       <div class="setting-row">
-        <label>PEAK HOLD <span id="peak-hold-val">ON</span></label>
+        <label>PEAK HOLD</label>
         <div class="toggle-row">
           <div class="toggle-opt active" id="peak-on" onclick="setToggle('peakHold',true)">ON</div>
           <div class="toggle-opt" id="peak-off" onclick="setToggle('peakHold',false)">OFF</div>
@@ -277,7 +300,7 @@
       </div>
 
       <div class="setting-row">
-        <label>BACKGROUND BLUR <span id="bg-blur-val">ON</span></label>
+        <label>BACKGROUND BLUR</label>
         <div class="toggle-row">
           <div class="toggle-opt active" id="blur-on" onclick="setToggle('bgBlur',true)">ON</div>
           <div class="toggle-opt" id="blur-off" onclick="setToggle('bgBlur',false)">OFF</div>
@@ -288,49 +311,105 @@
       <div class="setting-section">AUDIO</div>
 
       <div class="setting-row">
-        <label>GAIN (amplify) <span id="gain-val">1.5×</span></label>
-        <input type="range" class="touch-slider" id="gain" min="5" max="80" value="15" oninput="updateSettings()">
+        <label>GAIN (amplify signal)</label>
+        <div class="stepper" id="s-gain">
+          <button class="stepper-btn" data-id="gain" data-dir="-1">−</button>
+          <div class="stepper-sep"></div>
+          <input class="stepper-input" id="gain" type="number" value="1.5" min="0.5" max="8" step="0.1" onchange="applyStepperInput('gain')">
+          <div class="stepper-unit">×</div>
+          <div class="stepper-sep"></div>
+          <button class="stepper-btn" data-id="gain" data-dir="1">+</button>
+        </div>
       </div>
 
       <div class="setting-row">
-        <label>Y-SCALE (boost low vol) <span id="yscale-val">1.0×</span></label>
-        <input type="range" class="touch-slider" id="yscale" min="10" max="60" value="10" oninput="updateSettings()">
+        <label>Y-SCALE (stretch low volumes)</label>
+        <div class="stepper" id="s-yscale">
+          <button class="stepper-btn" data-id="yscale" data-dir="-1">−</button>
+          <div class="stepper-sep"></div>
+          <input class="stepper-input" id="yscale" type="number" value="1.0" min="0.5" max="6" step="0.1" onchange="applyStepperInput('yscale')">
+          <div class="stepper-unit">×</div>
+          <div class="stepper-sep"></div>
+          <button class="stepper-btn" data-id="yscale" data-dir="1">+</button>
+        </div>
       </div>
 
       <div class="setting-row">
-        <label>NOISE FLOOR (remove hiss) <span id="noise-val">0%</span></label>
-        <input type="range" class="touch-slider" id="noise-floor" min="0" max="100" value="0" oninput="updateSettings()">
+        <label>NOISE FLOOR (cut base noise)</label>
+        <div class="stepper" id="s-noise">
+          <button class="stepper-btn" data-id="noise" data-dir="-1">−</button>
+          <div class="stepper-sep"></div>
+          <input class="stepper-input" id="noise" type="number" value="0" min="0" max="100" step="1" onchange="applyStepperInput('noise')">
+          <div class="stepper-unit">%</div>
+          <div class="stepper-sep"></div>
+          <button class="stepper-btn" data-id="noise" data-dir="1">+</button>
+        </div>
       </div>
 
       <div class="setting-row">
-        <label>SMOOTHING <span id="smoothing-val">0.80</span></label>
-        <input type="range" class="touch-slider" id="smoothing" min="0" max="95" value="80" oninput="updateSettings()">
+        <label>SMOOTHING</label>
+        <div class="stepper" id="s-smoothing">
+          <button class="stepper-btn" data-id="smoothing" data-dir="-1">−</button>
+          <div class="stepper-sep"></div>
+          <input class="stepper-input" id="smoothing" type="number" value="80" min="0" max="95" step="1" onchange="applyStepperInput('smoothing')">
+          <div class="stepper-unit">%</div>
+          <div class="stepper-sep"></div>
+          <button class="stepper-btn" data-id="smoothing" data-dir="1">+</button>
+        </div>
       </div>
 
       <!-- FREQUENCY -->
       <div class="setting-section">FREQUENCY RANGE</div>
 
       <div class="setting-row">
-        <label>MIN FREQ (cut low rumble) <span id="freq-min-val">0 Hz</span></label>
-        <input type="range" class="touch-slider" id="freq-min" min="0" max="100" value="0" oninput="updateFreqMin()">
+        <label>MIN FREQ (cut low rumble)</label>
+        <div class="stepper" id="s-freqmin">
+          <button class="stepper-btn" data-id="freqmin" data-dir="-1">−</button>
+          <div class="stepper-sep"></div>
+          <input class="stepper-input" id="freqmin" type="number" value="0" min="0" max="100" step="5" onchange="applyStepperInput('freqmin')">
+          <div class="stepper-unit">Hz</div>
+          <div class="stepper-sep"></div>
+          <button class="stepper-btn" data-id="freqmin" data-dir="1">+</button>
+        </div>
       </div>
 
       <div class="setting-row">
-        <label>MAX FREQ (cut high hiss) <span id="freq-max-val">10 kHz</span></label>
-        <input type="range" class="touch-slider" id="freq-max" min="5000" max="10000" value="10000" oninput="updateFreqMax()">
+        <label>MAX FREQ (cut high hiss)</label>
+        <div class="stepper" id="s-freqmax">
+          <button class="stepper-btn" data-id="freqmax" data-dir="-1">−</button>
+          <div class="stepper-sep"></div>
+          <input class="stepper-input" id="freqmax" type="number" value="20000" min="5000" max="20000" step="500" onchange="applyStepperInput('freqmax')">
+          <div class="stepper-unit">Hz</div>
+          <div class="stepper-sep"></div>
+          <button class="stepper-btn" data-id="freqmax" data-dir="1">+</button>
+        </div>
       </div>
 
       <div class="setting-row">
-        <label>NUMBER OF BARS <span id="bar-count-val">64</span></label>
-        <input type="range" class="touch-slider" id="bar-count" min="8" max="128" value="64" oninput="updateSettings()">
+        <label>NUMBER OF BARS</label>
+        <div class="stepper" id="s-bars">
+          <button class="stepper-btn" data-id="bars" data-dir="-1">−</button>
+          <div class="stepper-sep"></div>
+          <input class="stepper-input" id="bars" type="number" value="64" min="8" max="128" step="4" onchange="applyStepperInput('bars')">
+          <div class="stepper-unit">bars</div>
+          <div class="stepper-sep"></div>
+          <button class="stepper-btn" data-id="bars" data-dir="1">+</button>
+        </div>
       </div>
 
       <!-- STYLE -->
       <div class="setting-section">STYLE</div>
 
       <div class="setting-row">
-        <label>BAR ROUNDNESS <span id="round-val">4px</span></label>
-        <input type="range" class="touch-slider" id="roundness" min="0" max="20" value="4" oninput="updateSettings()">
+        <label>BAR ROUNDNESS</label>
+        <div class="stepper" id="s-round">
+          <button class="stepper-btn" data-id="round" data-dir="-1">−</button>
+          <div class="stepper-sep"></div>
+          <input class="stepper-input" id="round" type="number" value="4" min="0" max="20" step="1" onchange="applyStepperInput('round')">
+          <div class="stepper-unit">px</div>
+          <div class="stepper-sep"></div>
+          <button class="stepper-btn" data-id="round" data-dir="1">+</button>
+        </div>
       </div>
 
       <!-- SPOTIFY -->
@@ -375,19 +454,19 @@
 
     <div class="control-group">
       <span class="control-label">BARS</span>
-      <input type="range" class="slider" style="width:70px" id="bar-count-quick" min="8" max="128" value="64" oninput="document.getElementById('bar-count').value=this.value;updateSettings()">
+      <input type="range" class="slider" style="width:70px" id="bar-count-quick" min="8" max="128" value="64" oninput="stepperSet('bars',parseInt(this.value));document.getElementById('bar-quick-val').textContent=this.value;">
       <span class="slider-val" id="bar-quick-val">64</span>
     </div>
 
     <div class="control-group">
       <span class="control-label">GAIN</span>
-      <input type="range" class="slider" style="width:70px" id="gain-quick" min="5" max="80" value="15" oninput="document.getElementById('gain').value=this.value;updateSettings()">
+      <input type="range" class="slider" style="width:70px" id="gain-quick" min="0.5" max="8" step="0.1" value="1.5" oninput="stepperSet('gain',parseFloat(this.value));">
     </div>
 
     <div class="v-divider"></div>
 
     <div class="control-group" style="margin-left:auto">
-      <span id="freq-display" style="font-size:9px;color:var(--muted);letter-spacing:1px;white-space:nowrap;">0 Hz — 10 kHz</span>
+      <span id="freq-display" style="font-size:9px;color:var(--muted);letter-spacing:1px;white-space:nowrap;">0 Hz — 20 kHz</span>
     </div>
   </div>
 </div>
@@ -403,7 +482,7 @@ const state = {
   micActive: false, audioCtx: null, analyser: null, stream: null,
   animFrame: null, spotifyToken: null, spotifyInterval: null, currentTrack: null,
   vizMode: 'bars', colorTheme: 'fire',
-  freqMin: 0, freqMax: 10000, barCount: 64,
+  freqMin: 0, freqMax: 20000, barCount: 64,
   smoothing: 0.8, gain: 1.5, yScale: 1.0, noiseFloor: 0,
   roundness: 4, peakHold: true, bgBlur: true,
   peaks: [], peakTimers: [], bars: [],
@@ -762,45 +841,88 @@ function startSpotifyPolling() {
   state.spotifyInterval=setInterval(fetchCurrentTrack,5000);
 }
 
-// ── SETTINGS ──
+// ── STEPPERS ──
+// Config per stepper id: { min, max, step, accelStep, get, set }
+const STEPPERS = {
+  gain:      { min:0.5,  max:8,     step:0.1,  accel:0.5,  decimals:1, get:()=>state.gain,       set:v=>{state.gain=v;} },
+  yscale:    { min:0.5,  max:6,     step:0.1,  accel:0.5,  decimals:1, get:()=>state.yScale,     set:v=>{state.yScale=v;} },
+  noise:     { min:0,    max:100,   step:1,    accel:5,    decimals:0, get:()=>state.noiseFloor, set:v=>{state.noiseFloor=v;} },
+  smoothing: { min:0,    max:95,    step:1,    accel:5,    decimals:0, get:()=>state.smoothing*100, set:v=>{state.smoothing=v/100;} },
+  freqmin:   { min:0,    max:100,   step:5,    accel:20,   decimals:0, get:()=>state.freqMin,    set:v=>{state.freqMin=v; document.getElementById('freq-display').textContent=`${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;} },
+  freqmax:   { min:5000, max:20000, step:500,  accel:2000, decimals:0, get:()=>state.freqMax,    set:v=>{state.freqMax=v; document.getElementById('freq-display').textContent=`${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;} },
+  bars:      { min:8,    max:128,   step:4,    accel:16,   decimals:0, get:()=>state.barCount,   set:v=>{state.barCount=v; document.getElementById('bar-count-quick').value=v; document.getElementById('bar-quick-val').textContent=v;} },
+  round:     { min:0,    max:20,    step:1,    accel:4,    decimals:0, get:()=>state.roundness,  set:v=>{state.roundness=v;} },
+};
+
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+function stepperSet(id, val) {
+  const cfg = STEPPERS[id];
+  val = clamp(parseFloat(val.toFixed(cfg.decimals)), cfg.min, cfg.max);
+  cfg.set(val);
+  const input = document.getElementById(id);
+  if (input) input.value = val;
+}
+
+function applyStepperInput(id) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  stepperSet(id, parseFloat(input.value) || STEPPERS[id].min);
+}
+
+// Hold-to-accelerate logic
+let holdTimer = null, holdInterval = null, holdCount = 0;
+
+function stepperPress(id, dir) {
+  const cfg = STEPPERS[id];
+  // immediate step
+  stepperSet(id, cfg.get() + dir * cfg.step);
+  holdCount = 0;
+  // after 500ms, start accelerating
+  holdTimer = setTimeout(() => {
+    holdInterval = setInterval(() => {
+      holdCount++;
+      const speed = holdCount > 10 ? cfg.accel : cfg.step;
+      stepperSet(id, cfg.get() + dir * speed);
+    }, 80);
+  }, 500);
+}
+
+function stepperRelease() {
+  clearTimeout(holdTimer);
+  clearInterval(holdInterval);
+  holdTimer = null; holdInterval = null; holdCount = 0;
+}
+
+function initSteppers() {
+  document.querySelectorAll('.stepper-btn').forEach(btn => {
+    const id  = btn.dataset.id;
+    const dir = parseInt(btn.dataset.dir);
+    btn.addEventListener('pointerdown', e => { e.preventDefault(); btn.classList.add('holding'); stepperPress(id, dir); });
+    btn.addEventListener('pointerup',   () => { btn.classList.remove('holding'); stepperRelease(); });
+    btn.addEventListener('pointerleave',() => { btn.classList.remove('holding'); stepperRelease(); });
+  });
+  // Init display values
+  Object.keys(STEPPERS).forEach(id => {
+    const input = document.getElementById(id);
+    if (input) input.value = parseFloat(STEPPERS[id].get().toFixed(STEPPERS[id].decimals));
+  });
+}
+
 function updateSettings() {
-  state.vizMode    = document.getElementById('viz-mode').value;
-  state.colorTheme = document.getElementById('color-theme').value;
-  state.barCount   = parseInt(document.getElementById('bar-count').value);
-  state.smoothing  = parseInt(document.getElementById('smoothing').value)/100;
-  state.gain       = parseInt(document.getElementById('gain').value)/10;
-  state.yScale     = parseInt(document.getElementById('yscale').value)/10;
-  state.noiseFloor = parseInt(document.getElementById('noise-floor').value);
-  state.roundness  = parseInt(document.getElementById('roundness').value);
-
-  // Display values
-  document.getElementById('bar-count-val').textContent  = state.barCount;
-  document.getElementById('smoothing-val').textContent  = state.smoothing.toFixed(2);
-  document.getElementById('gain-val').textContent       = state.gain.toFixed(1)+'×';
-  document.getElementById('yscale-val').textContent     = state.yScale.toFixed(1)+'×';
-  document.getElementById('noise-val').textContent      = state.noiseFloor+'%';
-  document.getElementById('round-val').textContent      = state.roundness+'px';
-  document.getElementById('bar-quick-val').textContent  = state.barCount;
-  document.getElementById('bar-count-quick').value      = state.barCount;
-  document.getElementById('gain-quick').value           = document.getElementById('gain').value;
-
-  THEMES[state.colorTheme] && document.documentElement.style.setProperty('--accent',THEMES[state.colorTheme].accent);
-
-  // Sync quick mode selector
-  document.getElementById('mode-quick').value = state.vizMode;
-
-  document.getElementById('freq-display').textContent=`${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;
-}
-
-function updateFreqMin() {
-  state.freqMin=parseInt(document.getElementById('freq-min').value);
-  document.getElementById('freq-min-val').textContent=state.freqMin+' Hz';
-  document.getElementById('freq-display').textContent=`${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;
-}
-function updateFreqMax() {
-  state.freqMax=parseInt(document.getElementById('freq-max').value);
-  document.getElementById('freq-max-val').textContent=(state.freqMax/1000).toFixed(1)+' kHz';
-  document.getElementById('freq-display').textContent=`${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;
+  // Only mode and theme come from selects — all other values managed by steppers
+  const modeEl = document.getElementById('viz-mode');
+  const themeEl = document.getElementById('color-theme');
+  if (modeEl) state.vizMode = modeEl.value;
+  if (themeEl) state.colorTheme = themeEl.value;
+  THEMES[state.colorTheme] && document.documentElement.style.setProperty('--accent', THEMES[state.colorTheme].accent);
+  const modeQuick = document.getElementById('mode-quick');
+  if (modeQuick) modeQuick.value = state.vizMode;
+  document.getElementById('freq-display').textContent = `${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;
+  const bcq = document.getElementById('bar-count-quick');
+  const bqv = document.getElementById('bar-quick-val');
+  if (bcq) bcq.value = state.barCount;
+  if (bqv) bqv.textContent = state.barCount;
 }
 
 // ── FULLSCREEN ──
@@ -863,6 +985,7 @@ function init() {
 
 document.addEventListener('DOMContentLoaded', () => {
   resizeCanvases();
+  initSteppers();
   draw();
   init();
   document.getElementById('main-canvas').addEventListener('click', () => {
