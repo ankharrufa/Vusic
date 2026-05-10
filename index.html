@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>VUSIC — Music Visualizer</title>
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="VUSIC">
+<meta name="theme-color" content="#080808">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -463,11 +468,6 @@
       <input type="range" class="slider" style="width:70px" id="gain-quick" min="0.5" max="8" step="0.1" value="1.5" oninput="stepperSet('gain',parseFloat(this.value));">
     </div>
 
-    <div class="v-divider"></div>
-
-    <div class="control-group" style="margin-left:auto">
-      <span id="freq-display" style="font-size:9px;color:var(--muted);letter-spacing:1px;white-space:nowrap;">0 Hz — 20 kHz</span>
-    </div>
   </div>
 </div>
 
@@ -563,14 +563,18 @@ function draw() {
       const s2=minBin+Math.floor((i/N)*range), e2=minBin+Math.floor(((i+1)/N)*range);
       let mx=-Infinity;
       for (let b=s2;b<=e2;b++) mx=Math.max(mx,fd[b]);
-      // Apply gain
-      let db = Math.max(-120, mx * state.gain);
-      // Subtract noise floor: slider 0-100 maps to 0-50dB subtraction
-      const noiseDb = state.noiseFloor * 0.5;
-      db = db + 90; // shift to 0-based (0 = silence at -90dB)
+      // mx is in dB (negative, e.g. -60). Add gain as dB boost (0-40dB range)
+      // state.gain is 0.5-8, map to 0-40dB boost: boost = (gain-1)*8
+      const gainDb = (state.gain - 1) * 8;
+      let db = mx + gainDb;
+      // Shift from dB range (-90..0) to positive (0..90)
+      db = db + 90;
+      // Subtract noise floor: 0-100% maps to 0-45dB
+      const noiseDb = state.noiseFloor * 0.45;
       db = Math.max(0, db - noiseDb);
-      // Normalize 0-1 with yScale power curve
-      let norm = db / 80;
+      // Normalize 0-1
+      let norm = db / 90;
+      // Apply yScale power curve to stretch low values
       const ys = Math.max(0.1, state.yScale);
       norm = Math.pow(Math.max(0,Math.min(1,norm)), 1/ys);
       raw[i] = Math.min(1, norm);
@@ -848,8 +852,8 @@ const STEPPERS = {
   yscale:    { min:0.5,  max:6,     step:0.1,  accel:0.5,  decimals:1, get:()=>state.yScale,     set:v=>{state.yScale=v;} },
   noise:     { min:0,    max:100,   step:1,    accel:5,    decimals:0, get:()=>state.noiseFloor, set:v=>{state.noiseFloor=v;} },
   smoothing: { min:0,    max:95,    step:1,    accel:5,    decimals:0, get:()=>state.smoothing*100, set:v=>{state.smoothing=v/100;} },
-  freqmin:   { min:0,    max:100,   step:5,    accel:20,   decimals:0, get:()=>state.freqMin,    set:v=>{state.freqMin=v; document.getElementById('freq-display').textContent=`${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;} },
-  freqmax:   { min:5000, max:20000, step:500,  accel:2000, decimals:0, get:()=>state.freqMax,    set:v=>{state.freqMax=v; document.getElementById('freq-display').textContent=`${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;} },
+  freqmin:   { min:0,    max:100,   step:5,    accel:20,   decimals:0, get:()=>state.freqMin,    set:v=>{state.freqMin=v;} },
+  freqmax:   { min:5000, max:20000, step:500,  accel:2000, decimals:0, get:()=>state.freqMax,    set:v=>{state.freqMax=v;} },
   bars:      { min:8,    max:128,   step:4,    accel:16,   decimals:0, get:()=>state.barCount,   set:v=>{state.barCount=v; document.getElementById('bar-count-quick').value=v; document.getElementById('bar-quick-val').textContent=v;} },
   round:     { min:0,    max:20,    step:1,    accel:4,    decimals:0, get:()=>state.roundness,  set:v=>{state.roundness=v;} },
 };
@@ -918,7 +922,8 @@ function updateSettings() {
   THEMES[state.colorTheme] && document.documentElement.style.setProperty('--accent', THEMES[state.colorTheme].accent);
   const modeQuick = document.getElementById('mode-quick');
   if (modeQuick) modeQuick.value = state.vizMode;
-  document.getElementById('freq-display').textContent = `${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;
+  const fd2 = document.getElementById('freq-display');
+  if (fd2) fd2.textContent = `${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;
   const bcq = document.getElementById('bar-count-quick');
   const bqv = document.getElementById('bar-quick-val');
   if (bcq) bcq.value = state.barCount;
