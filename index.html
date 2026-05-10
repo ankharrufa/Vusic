@@ -475,6 +475,15 @@
       </div>
 
       <div class="setting-row">
+        <label>FREQUENCY SCALE</label>
+        <div class="toggle-row">
+          <div class="toggle-opt" id="fscale-linear" onclick="setFreqScale('linear')">LINEAR</div>
+          <div class="toggle-opt active" id="fscale-sqrt" onclick="setFreqScale('sqrt')">SQRT</div>
+          <div class="toggle-opt" id="fscale-log" onclick="setFreqScale('log')">LOG</div>
+        </div>
+      </div>
+
+      <div class="setting-row">
         <label>NUMBER OF BARS</label>
         <div class="stepper" id="s-bars">
           <button class="stepper-btn" data-id="bars" data-dir="-1">−</button>
@@ -578,7 +587,7 @@ const state = {
   micActive: false, audioCtx: null, analyser: null, stream: null,
   animFrame: null, spotifyToken: null, spotifyInterval: null, currentTrack: null,
   vizMode: 'blocks-mirror', colorTheme: 'fire',
-  freqMin: 20, freqMax: 15000, barCount: 25,
+  freqMin: 20, freqMax: 15000, freqScale: 'sqrt', barCount: 25,
   smoothing: 0.10, gain: 5, yScale: 2.0, noiseFloor: 0,
   roundness: 0, peakHold: true, bgBlur: true,
   fsPosition: 'bottom-left',
@@ -641,6 +650,36 @@ function drawBackground() {
   bgCtx.fillStyle=g; bgCtx.fillRect(0,0,W,H);
 }
 
+// Maps bar index i (0…N-1) to FFT bin range {s2,e2} using state.freqScale
+function freqBins(i, N, binHz, binCount) {
+  const fMin = Math.max(1, state.freqMin), fMax = state.freqMax;
+  let f0, f1;
+  if (state.freqScale === 'log') {
+    const lMin = Math.log2(fMin), lMax = Math.log2(fMax);
+    f0 = Math.pow(2, lMin + (i/N)*(lMax-lMin));
+    f1 = Math.pow(2, lMin + ((i+1)/N)*(lMax-lMin));
+  } else if (state.freqScale === 'sqrt') {
+    const sMin = Math.sqrt(fMin), sMax = Math.sqrt(fMax);
+    f0 = Math.pow(sMin + (i/N)*(sMax-sMin), 2);
+    f1 = Math.pow(sMin + ((i+1)/N)*(sMax-sMin), 2);
+  } else {
+    f0 = fMin + (i/N)*(fMax-fMin);
+    f1 = fMin + ((i+1)/N)*(fMax-fMin);
+  }
+  return {
+    s2: Math.max(0, Math.floor(f0/binHz)),
+    e2: Math.min(binCount-1, Math.ceil(f1/binHz)),
+  };
+}
+
+function setFreqScale(scale) {
+  state.freqScale = scale;
+  ['linear','sqrt','log'].forEach(s =>
+    document.getElementById('fscale-'+s).classList.toggle('active', s===scale)
+  );
+  saveSettings();
+}
+
 // ── MAIN LOOP ──
 function draw() {
   state.animFrame = requestAnimationFrame(draw);
@@ -653,13 +692,8 @@ function draw() {
     state.analyser.getFloatFrequencyData(fd);
     const nyq = state.audioCtx.sampleRate/2;
     const binHz = nyq/fd.length;
-    const logFMin = Math.log2(Math.max(1, state.freqMin));
-    const logFMax = Math.log2(state.freqMax);
     for (let i=0;i<N;i++) {
-      const f0 = Math.pow(2, logFMin + (i/N)*(logFMax-logFMin));
-      const f1 = Math.pow(2, logFMin + ((i+1)/N)*(logFMax-logFMin));
-      const s2 = Math.max(0, Math.floor(f0/binHz));
-      const e2 = Math.min(fd.length-1, Math.ceil(f1/binHz));
+      const {s2,e2} = freqBins(i,N,binHz,fd.length);
       let mx=-Infinity;
       for (let b=s2;b<=e2;b++) mx=Math.max(mx,fd[b]);
       const gainDb = (state.gain - 1) * 8;
@@ -1178,14 +1212,9 @@ function collectCalSample() {
   const N = state.barCount, fd = new Float32Array(state.analyser.frequencyBinCount);
   state.analyser.getFloatFrequencyData(fd);
   const nyq = state.audioCtx.sampleRate / 2, binHz = nyq / fd.length;
-  const logFMin2 = Math.log2(Math.max(1, state.freqMin));
-  const logFMax2 = Math.log2(state.freqMax);
   const vals = new Float32Array(N);
   for (let i = 0; i < N; i++) {
-    const f0 = Math.pow(2, logFMin2 + (i/N)*(logFMax2-logFMin2));
-    const f1 = Math.pow(2, logFMin2 + ((i+1)/N)*(logFMax2-logFMin2));
-    const s2 = Math.max(0, Math.floor(f0/binHz));
-    const e2 = Math.min(fd.length-1, Math.ceil(f1/binHz));
+    const {s2,e2} = freqBins(i,N,binHz,fd.length);
     let mx = -Infinity; for (let b = s2; b <= e2; b++) mx = Math.max(mx, fd[b]);
     // Raw shifted dB only — no frequency correction, no clamping.
     // freqB is a display transform and would push low-freq bins negative,
@@ -1366,7 +1395,7 @@ function initGestures() {
 }
 
 // ── SETTINGS PERSISTENCE ──
-const SETTINGS_KEYS = ['vizMode','colorTheme','peakHold','bgBlur','gain','yScale','noiseFloor','smoothing','freqMin','freqMax','barCount','roundness','fsPosition'];
+const SETTINGS_KEYS = ['vizMode','colorTheme','peakHold','bgBlur','gain','yScale','noiseFloor','smoothing','freqMin','freqMax','freqScale','barCount','roundness','fsPosition'];
 
 function saveSettings() {
   const out = {};
@@ -1403,6 +1432,10 @@ function syncSettingsUI() {
   document.getElementById('peak-off').classList.toggle('active', !state.peakHold);
   document.getElementById('blur-on').classList.toggle('active', state.bgBlur);
   document.getElementById('blur-off').classList.toggle('active', !state.bgBlur);
+  // Freq scale
+  ['linear','sqrt','log'].forEach(s =>
+    document.getElementById('fscale-'+s).classList.toggle('active', s===(state.freqScale||'sqrt'))
+  );
   // Accent
   if (THEMES[state.colorTheme]) document.documentElement.style.setProperty('--accent', THEMES[state.colorTheme].accent);
   // Color buttons (order matches bottom bar: fire, ice, plasma, acid, mono, album)
