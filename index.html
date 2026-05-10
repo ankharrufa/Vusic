@@ -102,6 +102,7 @@
     padding:16px 16px 32px;
     backdrop-filter:blur(20px);
     -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
   }
   #settings-drawer.open { transform:translateX(0); }
 
@@ -131,7 +132,7 @@
     font-size:22px; font-family:'DM Mono',monospace;
     cursor:pointer; display:flex; align-items:center; justify-content:center;
     transition:background 0.1s; -webkit-tap-highlight-color:transparent;
-    flex-shrink:0;
+    touch-action:manipulation; user-select:none; flex-shrink:0;
   }
   .stepper-btn:active, .stepper-btn.holding { background:var(--accent); color:#000; }
   .stepper-sep { width:1px; background:var(--border); height:60%; flex-shrink:0; }
@@ -139,9 +140,8 @@
     flex:1; background:transparent; border:none; outline:none;
     color:var(--text); font-family:'Bebas Neue',sans-serif;
     font-size:22px; text-align:center; padding:0 4px;
-    min-width:0; cursor:text;
+    min-width:0; -webkit-user-select:none; pointer-events:none;
   }
-  .stepper-input:focus { color:var(--accent); }
   .stepper-unit {
     font-size:10px; color:var(--muted); padding-right:12px;
     letter-spacing:1px; flex-shrink:0; white-space:nowrap;
@@ -164,6 +164,7 @@
 
   /* Notice */
   #config-notice { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; z-index:5; pointer-events:none; }
+  #config-notice img { width:clamp(64px,12vw,110px); height:clamp(64px,12vw,110px); border-radius:22px; margin:0 auto 18px; display:block; opacity:0.9; box-shadow:0 0 40px rgba(255,107,53,0.3); }
   #config-notice h2 { font-family:'Bebas Neue',sans-serif; font-size:clamp(28px,6vw,52px); letter-spacing:6px; color:var(--accent); text-shadow:0 0 40px var(--accent); margin-bottom:8px; }
   #config-notice p { font-size:clamp(10px,1.5vw,13px); color:var(--muted); letter-spacing:2px; }
 
@@ -185,6 +186,7 @@
     z-index:8; pointer-events:none;
     opacity:0; transition:opacity 0.4s;
     display:flex; align-items:flex-end; gap:16px;
+    box-sizing:border-box;
   }
   #app.fullscreen #fs-overlay { opacity:1; }
 
@@ -218,6 +220,34 @@
   ::-webkit-scrollbar { width:3px; }
   ::-webkit-scrollbar-track { background:transparent; }
   ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+
+  /* ── CALIBRATION OVERLAY ── */
+  #cal-overlay { position:absolute; inset:0; z-index:40; background:rgba(8,8,8,0.96); display:none; flex-direction:column; align-items:stretch; justify-content:center; gap:12px; padding:22px; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+  #cal-overlay.visible { display:flex; }
+  .cal-page { display:none; flex-direction:column; gap:12px; width:100%; }
+  .cal-page.active { display:flex; }
+  .cal-h1 { font-family:'Bebas Neue',sans-serif; font-size:clamp(26px,6vw,38px); letter-spacing:4px; color:var(--accent); text-shadow:0 0 28px var(--accent); text-align:center; }
+  .cal-sub { font-size:9px; letter-spacing:2px; color:var(--muted); text-align:center; margin-top:-6px; }
+  .cal-msg { font-size:clamp(11px,1.8vw,13px); color:var(--text); line-height:1.9; letter-spacing:0.5px; text-align:center; }
+  .cal-card { background:#111; border:1px solid var(--border); border-radius:10px; padding:14px 16px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+  .cal-card-info { display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .cal-card-tag { font-size:8px; letter-spacing:2px; color:var(--muted); }
+  .cal-card-name { font-family:'Bebas Neue',sans-serif; font-size:18px; letter-spacing:2px; color:var(--text); line-height:1; }
+  .cal-card-status { font-size:9px; letter-spacing:1px; color:var(--accent); margin-top:1px; }
+  .cal-countdown { font-family:'Bebas Neue',sans-serif; font-size:clamp(64px,16vw,100px); color:var(--accent); text-shadow:0 0 50px var(--accent); line-height:1; text-align:center; }
+  .cal-bar-wrap { width:100%; height:4px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; }
+  #cal-bar-fill { height:100%; background:var(--accent); border-radius:2px; width:0%; transition:width 0.08s linear; }
+  .cal-btn { font-family:'DM Mono',monospace; font-size:11px; letter-spacing:2px; padding:12px 20px; border-radius:6px; border:1px solid var(--border); cursor:pointer; background:transparent; color:var(--muted); transition:all 0.2s; -webkit-tap-highlight-color:transparent; white-space:nowrap; flex-shrink:0; }
+  .cal-btn.primary { border-color:var(--accent); color:var(--accent); }
+  .cal-btn.full { width:100%; padding:14px; }
+  .cal-btn:active { opacity:0.7; }
+  .cal-row { display:flex; gap:10px; }
+
+  /* ── GESTURE HUD ── */
+  #gesture-hud { position:absolute; top:18px; left:50%; transform:translateX(-50%); background:rgba(8,8,8,0.9); border:1px solid var(--border); border-radius:24px; padding:8px 20px 8px 16px; display:flex; align-items:center; gap:10px; z-index:20; pointer-events:none; opacity:0; transition:opacity 0.2s; white-space:nowrap; }
+  #gesture-hud.visible { opacity:1; }
+  #gesture-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; }
+  #gesture-val { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--accent); letter-spacing:1px; line-height:1; }
 </style>
 </head>
 <body>
@@ -249,6 +279,7 @@
     <canvas id="bg-canvas"></canvas>
     <canvas id="main-canvas"></canvas>
     <div id="config-notice">
+      <img src="icon.png" alt="VUSIC">
       <h2>VUSIC</h2>
       <p>TAP MIC TO START VISUALIZER</p>
     </div>
@@ -264,6 +295,62 @@
     </div>
     <div id="fs-hint">TAP TO SHOW CONTROLS</div>
 
+    <!-- GESTURE HUD -->
+    <div id="gesture-hud">
+      <span id="gesture-label">GAIN</span>
+      <span id="gesture-val">—</span>
+    </div>
+
+    <!-- CALIBRATION OVERLAY -->
+    <div id="cal-overlay">
+
+      <!-- PAGE: MAIN MENU -->
+      <div class="cal-page active" id="cal-page-main">
+        <div class="cal-h1">AUTO CALIBRATE</div>
+        <div class="cal-sub">RUN EACH PHASE INDEPENDENTLY — REDO ANY TIME</div>
+
+        <div class="cal-card">
+          <div class="cal-card-info">
+            <span class="cal-card-tag">PHASE 1</span>
+            <span class="cal-card-name">NOISE FLOOR</span>
+            <span class="cal-card-status" id="cal-noise-status">NOT RUN</span>
+          </div>
+          <button class="cal-btn primary" id="cal-noise-btn" onclick="calBegin('noise')">CALIBRATE</button>
+        </div>
+
+        <div class="cal-card">
+          <div class="cal-card-info">
+            <span class="cal-card-tag">PHASE 2</span>
+            <span class="cal-card-name">GAIN &amp; Y-SCALE</span>
+            <span class="cal-card-status" id="cal-music-status">NOT RUN</span>
+          </div>
+          <button class="cal-btn primary" id="cal-music-btn" onclick="calBegin('music')">CALIBRATE</button>
+        </div>
+
+        <div class="cal-row">
+          <button class="cal-btn primary full" onclick="calApply()">APPLY</button>
+          <button class="cal-btn full" onclick="cancelCalibration()">CLOSE</button>
+        </div>
+      </div>
+
+      <!-- PAGE: INSTRUCTION -->
+      <div class="cal-page" id="cal-page-instr">
+        <div class="cal-h1" id="cal-instr-title">SILENCE</div>
+        <div class="cal-msg" id="cal-instr-msg"></div>
+        <button class="cal-btn primary full" style="padding:16px;font-size:12px;" onclick="calConfirm()">▶ START RECORDING</button>
+        <button class="cal-btn full" onclick="calShowPage('main')">← BACK</button>
+      </div>
+
+      <!-- PAGE: RECORDING -->
+      <div class="cal-page" id="cal-page-rec" style="align-items:center;justify-content:center;">
+        <div class="cal-h1" id="cal-rec-title">RECORDING</div>
+        <div class="cal-msg" id="cal-rec-msg"></div>
+        <div class="cal-countdown" id="cal-countdown">5</div>
+        <div class="cal-bar-wrap"><div id="cal-bar-fill"></div></div>
+      </div>
+
+    </div>
+
     <!-- SETTINGS DRAWER -->
     <div id="settings-drawer">
       <button class="drawer-close" onclick="toggleSettings()">✕</button>
@@ -275,12 +362,9 @@
       <div class="setting-row">
         <label>MODE</label>
         <select class="big-select" id="viz-mode" onchange="updateSettings()">
-          <option value="bars">BARS</option>
-          <option value="mirror">MIRROR BARS</option>
-          <option value="wave">WAVE</option>
-          <option value="radial">RADIAL</option>
+          <option value="blocks-mirror" selected>BLOCKS MIRROR</option>
           <option value="blocks">BLOCKS</option>
-          <option value="blocks-mirror">BLOCKS MIRROR</option>
+          <option value="radial">RADIAL</option>
         </select>
       </div>
 
@@ -320,7 +404,7 @@
         <div class="stepper" id="s-gain">
           <button class="stepper-btn" data-id="gain" data-dir="-1">−</button>
           <div class="stepper-sep"></div>
-          <input class="stepper-input" id="gain" type="number" value="1.5" min="0.5" max="8" step="0.1" onchange="applyStepperInput('gain')">
+          <input class="stepper-input" id="gain" type="number" value="5" min="0.5" max="8" step="0.1" inputmode="none" readonly>
           <div class="stepper-unit">×</div>
           <div class="stepper-sep"></div>
           <button class="stepper-btn" data-id="gain" data-dir="1">+</button>
@@ -332,7 +416,7 @@
         <div class="stepper" id="s-yscale">
           <button class="stepper-btn" data-id="yscale" data-dir="-1">−</button>
           <div class="stepper-sep"></div>
-          <input class="stepper-input" id="yscale" type="number" value="1.0" min="0.5" max="6" step="0.1" onchange="applyStepperInput('yscale')">
+          <input class="stepper-input" id="yscale" type="number" value="2" min="0.5" max="6" step="0.1" inputmode="none" readonly>
           <div class="stepper-unit">×</div>
           <div class="stepper-sep"></div>
           <button class="stepper-btn" data-id="yscale" data-dir="1">+</button>
@@ -344,7 +428,7 @@
         <div class="stepper" id="s-noise">
           <button class="stepper-btn" data-id="noise" data-dir="-1">−</button>
           <div class="stepper-sep"></div>
-          <input class="stepper-input" id="noise" type="number" value="0" min="0" max="100" step="1" onchange="applyStepperInput('noise')">
+          <input class="stepper-input" id="noise" type="number" value="0" min="0" max="100" step="1" inputmode="none" readonly>
           <div class="stepper-unit">%</div>
           <div class="stepper-sep"></div>
           <button class="stepper-btn" data-id="noise" data-dir="1">+</button>
@@ -356,7 +440,7 @@
         <div class="stepper" id="s-smoothing">
           <button class="stepper-btn" data-id="smoothing" data-dir="-1">−</button>
           <div class="stepper-sep"></div>
-          <input class="stepper-input" id="smoothing" type="number" value="80" min="0" max="95" step="1" onchange="applyStepperInput('smoothing')">
+          <input class="stepper-input" id="smoothing" type="number" value="10" min="0" max="95" step="1" inputmode="none" readonly>
           <div class="stepper-unit">%</div>
           <div class="stepper-sep"></div>
           <button class="stepper-btn" data-id="smoothing" data-dir="1">+</button>
@@ -371,7 +455,7 @@
         <div class="stepper" id="s-freqmin">
           <button class="stepper-btn" data-id="freqmin" data-dir="-1">−</button>
           <div class="stepper-sep"></div>
-          <input class="stepper-input" id="freqmin" type="number" value="0" min="0" max="100" step="5" onchange="applyStepperInput('freqmin')">
+          <input class="stepper-input" id="freqmin" type="number" value="20" min="0" max="200" step="5" inputmode="none" readonly>
           <div class="stepper-unit">Hz</div>
           <div class="stepper-sep"></div>
           <button class="stepper-btn" data-id="freqmin" data-dir="1">+</button>
@@ -383,7 +467,7 @@
         <div class="stepper" id="s-freqmax">
           <button class="stepper-btn" data-id="freqmax" data-dir="-1">−</button>
           <div class="stepper-sep"></div>
-          <input class="stepper-input" id="freqmax" type="number" value="20000" min="5000" max="20000" step="500" onchange="applyStepperInput('freqmax')">
+          <input class="stepper-input" id="freqmax" type="number" value="15000" min="5000" max="20000" step="500" inputmode="none" readonly>
           <div class="stepper-unit">Hz</div>
           <div class="stepper-sep"></div>
           <button class="stepper-btn" data-id="freqmax" data-dir="1">+</button>
@@ -395,7 +479,7 @@
         <div class="stepper" id="s-bars">
           <button class="stepper-btn" data-id="bars" data-dir="-1">−</button>
           <div class="stepper-sep"></div>
-          <input class="stepper-input" id="bars" type="number" value="64" min="8" max="128" step="4" onchange="applyStepperInput('bars')">
+          <input class="stepper-input" id="bars" type="number" value="25" min="8" max="128" step="1" inputmode="none" readonly>
           <div class="stepper-unit">bars</div>
           <div class="stepper-sep"></div>
           <button class="stepper-btn" data-id="bars" data-dir="1">+</button>
@@ -410,11 +494,31 @@
         <div class="stepper" id="s-round">
           <button class="stepper-btn" data-id="round" data-dir="-1">−</button>
           <div class="stepper-sep"></div>
-          <input class="stepper-input" id="round" type="number" value="4" min="0" max="20" step="1" onchange="applyStepperInput('round')">
+          <input class="stepper-input" id="round" type="number" value="0" min="0" max="20" step="1" inputmode="none" readonly>
           <div class="stepper-unit">px</div>
           <div class="stepper-sep"></div>
           <button class="stepper-btn" data-id="round" data-dir="1">+</button>
         </div>
+      </div>
+
+      <!-- AUTO CALIBRATE -->
+      <div class="setting-section">AUTO CALIBRATE</div>
+      <div class="setting-row">
+        <div class="input-hint" style="margin-bottom:14px;line-height:1.8;">Automatically sets gain, noise floor & y-scale. Mic must be on. Takes ~12 seconds.</div>
+        <button class="btn" style="width:100%;padding:14px;font-size:11px;letter-spacing:2px;border-color:var(--accent);color:var(--accent);" onclick="startCalibration()">⚡ AUTO CALIBRATE</button>
+      </div>
+
+      <!-- FULLSCREEN -->
+      <div class="setting-section">FULLSCREEN OVERLAY</div>
+      <div class="setting-row">
+        <label>TRACK INFO POSITION</label>
+        <select class="big-select" id="fs-position" onchange="setFsPos(this.value)">
+          <option value="bottom-left">↙ BOTTOM LEFT</option>
+          <option value="bottom-right">↘ BOTTOM RIGHT</option>
+          <option value="top-left">↖ TOP LEFT</option>
+          <option value="top-right">↗ TOP RIGHT</option>
+          <option value="center">＋ CENTER</option>
+        </select>
       </div>
 
       <!-- SPOTIFY -->
@@ -432,12 +536,9 @@
     <div class="control-group">
       <span class="control-label">MODE</span>
       <select style="font-family:'DM Mono',monospace;font-size:10px;background:#1a1a1a;color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px;cursor:pointer;" id="mode-quick" onchange="document.getElementById('viz-mode').value=this.value;updateSettings()">
-        <option value="bars">BARS</option>
-        <option value="mirror">MIRROR</option>
-        <option value="wave">WAVE</option>
-        <option value="radial">RADIAL</option>
+        <option value="blocks-mirror" selected>BLK MIR</option>
         <option value="blocks">BLOCKS</option>
-        <option value="blocks-mirror">BLK MIR</option>
+        <option value="radial">RADIAL</option>
       </select>
     </div>
 
@@ -451,21 +552,16 @@
         <div class="color-btn" style="background:linear-gradient(135deg,#bf00ff,#ff0080)" onclick="setTheme('plasma',this)" title="Plasma"></div>
         <div class="color-btn" style="background:linear-gradient(135deg,#00ff88,#aaff00)" onclick="setTheme('acid',this)" title="Acid"></div>
         <div class="color-btn" style="background:linear-gradient(135deg,#fff,#666)" onclick="setTheme('mono',this)" title="Mono"></div>
-        <div class="color-btn" style="background:conic-gradient(#ff6b35,#bf00ff,#00d4ff,#00ff88,#ff6b35)" onclick="setTheme('album',this)" title="Album Auto"></div>
+        <div class="color-btn" style="background:conic-gradient(#ff6b35,#bf00ff,#00d4ff,#00ff88,#ff6b35)" onclick="setTheme('album',this)" title="Album Art"></div>
       </div>
     </div>
 
     <div class="v-divider"></div>
 
     <div class="control-group">
-      <span class="control-label">BARS</span>
-      <input type="range" class="slider" style="width:70px" id="bar-count-quick" min="8" max="128" value="64" oninput="stepperSet('bars',parseInt(this.value));document.getElementById('bar-quick-val').textContent=this.value;">
-      <span class="slider-val" id="bar-quick-val">64</span>
-    </div>
-
-    <div class="control-group">
       <span class="control-label">GAIN</span>
-      <input type="range" class="slider" style="width:70px" id="gain-quick" min="0.5" max="8" step="0.1" value="1.5" oninput="stepperSet('gain',parseFloat(this.value));">
+      <input type="range" class="slider" style="width:80px" id="gain-quick" min="0.5" max="8" step="0.1" value="5" oninput="stepperSet('gain',parseFloat(this.value));">
+      <span class="slider-val" id="gain-quick-val">5×</span>
     </div>
 
   </div>
@@ -481,12 +577,13 @@ const CONFIG = {
 const state = {
   micActive: false, audioCtx: null, analyser: null, stream: null,
   animFrame: null, spotifyToken: null, spotifyInterval: null, currentTrack: null,
-  vizMode: 'bars', colorTheme: 'fire',
-  freqMin: 0, freqMax: 20000, barCount: 64,
-  smoothing: 0.8, gain: 1.5, yScale: 1.0, noiseFloor: 0,
-  roundness: 4, peakHold: true, bgBlur: true,
+  vizMode: 'blocks-mirror', colorTheme: 'fire',
+  freqMin: 20, freqMax: 15000, barCount: 25,
+  smoothing: 0.10, gain: 5, yScale: 2.0, noiseFloor: 0,
+  roundness: 0, peakHold: true, bgBlur: true,
+  fsPosition: 'bottom-left',
   peaks: [], peakTimers: [], bars: [],
-  blockPeaks: [], blockPeakTimers: [],   // for blocks peak hold
+  blockPeaks: [], blockPeakTimers: [],
   settingsOpen: false,
 };
 
@@ -563,18 +660,18 @@ function draw() {
       const s2=minBin+Math.floor((i/N)*range), e2=minBin+Math.floor(((i+1)/N)*range);
       let mx=-Infinity;
       for (let b=s2;b<=e2;b++) mx=Math.max(mx,fd[b]);
-      // mx is in dB (negative, e.g. -60). Add gain as dB boost (0-40dB range)
-      // state.gain is 0.5-8, map to 0-40dB boost: boost = (gain-1)*8
       const gainDb = (state.gain - 1) * 8;
-      let db = mx + gainDb;
-      // Shift from dB range (-90..0) to positive (0..90)
+      // Frequency slope: cuts below 1 kHz, boosts above — ~3.5 dB/octave symmetric around 1 kHz.
+      // This mirrors how A-weighting works and prevents bass from monopolising the display.
+      const centerFreq = ((s2 + e2) / 2) * binHz;
+      const freqBoostDb = Math.max(-22, Math.min(22, 3.5 * Math.log2(Math.max(20, centerFreq) / 1000)));
+      let db = mx + gainDb + freqBoostDb;
       db = db + 90;
-      // Subtract noise floor: 0-100% maps to 0-45dB
-      const noiseDb = state.noiseFloor * 0.45;
+      // Noise floor: strongest at low freqs (where hum/rumble lives), tapers toward highs
+      const noiseFreqFactor = Math.max(0.05, 1 - (i / N) * 0.95);
+      const noiseDb = state.noiseFloor * 0.45 * noiseFreqFactor;
       db = Math.max(0, db - noiseDb);
-      // Normalize 0-1
       let norm = db / 90;
-      // Apply yScale power curve to stretch low values
       const ys = Math.max(0.1, state.yScale);
       norm = Math.pow(Math.max(0,Math.min(1,norm)), 1/ys);
       raw[i] = Math.min(1, norm);
@@ -598,12 +695,9 @@ function draw() {
   mainCtx.clearRect(0,0,W,H);
 
   switch(state.vizMode) {
-    case 'bars':          drawBars(W,H,N,false); break;
-    case 'mirror':        drawBars(W,H,N,true);  break;
-    case 'wave':          drawWave(W,H,N);        break;
-    case 'radial':        drawRadial(W,H,N);      break;
-    case 'blocks':        drawBlocks(W,H,N,false);break;
-    case 'blocks-mirror': drawBlocks(W,H,N,true); break;
+    case 'radial': drawRadial(W,H,N);       break;
+    case 'blocks': drawBlocks(W,H,N,false); break;
+    default:       drawBlocks(W,H,N,true);  break;
   }
 }
 
@@ -691,28 +785,30 @@ function drawRadial(W,H,N) {
 function drawBlocks(W,H,N,mirror) {
   const rows=16, barW=W/N, gap=2;
   const blockH = mirror ? (H/2)/rows : H/rows;
+  const domIdx = state.bars.length ? state.bars.indexOf(Math.max(...state.bars)) : -1;
+  const domMag  = domIdx >= 0 ? state.bars[domIdx] : 0;
 
   for(let i=0;i<N;i++){
     const mag=state.bars[i];
     const filledRows=Math.round(mag*rows);
     const bw=barW-gap, x=i*barW+gap/2;
+    const isDom = i===domIdx && domMag>0.15;
 
     for(let r=0;r<filledRows;r++){
       const t=r/rows;
-      const color=getBarColor(t);
+      const color = isDom ? '#ffffff' : getBarColor(t);
       mainCtx.fillStyle=color;
       mainCtx.shadowColor=color;
-      mainCtx.shadowBlur=r>rows*0.7?10:2;
+      mainCtx.shadowBlur = isDom ? 22 : (r>rows*0.7?10:2);
 
       if (!mirror) {
         const y=H-(r+1)*blockH+gap/2;
         mainCtx.fillRect(x,y,bw,blockH-gap);
       } else {
-        // top half (upward)
         const y=H/2-(r+1)*blockH+gap/2;
         mainCtx.fillRect(x,y,bw,blockH-gap);
         // bottom half (downward), slightly dimmer
-        mainCtx.fillStyle=getBarColor(t*0.7);
+        mainCtx.fillStyle = isDom ? 'rgba(255,255,255,0.6)' : getBarColor(t*0.7);
         const y2=H/2+r*blockH+gap/2;
         mainCtx.fillRect(x,y2,bw,blockH-gap);
       }
@@ -835,7 +931,35 @@ function updateTrackUI(track) {
 }
 
 function extractAlbumColors(img) {
-  try{const c=document.createElement('canvas');c.width=c.height=8;const x=c.getContext('2d');x.drawImage(img,0,0,8,8);const d=x.getImageData(0,0,8,8).data;let r=0,g=0,b=0,n=0;for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}r=Math.round(r/n);g=Math.round(g/n);b=Math.round(b/n);const hex=`#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;const lt=`#${Math.min(255,r+100).toString(16).padStart(2,'0')}${Math.min(255,g+100).toString(16).padStart(2,'0')}${Math.min(255,b+100).toString(16).padStart(2,'0')}`;THEMES.album.stops=['#050505',hex,hex,lt,'#ffffff'];THEMES.album.accent=lt;document.documentElement.style.setProperty('--accent',lt);}catch(e){}
+  try {
+    const c = document.createElement('canvas'); c.width = c.height = 60;
+    const x = c.getContext('2d'); x.drawImage(img, 0, 0, 60, 60);
+    const d = x.getImageData(0, 0, 60, 60).data;
+    const h2 = v => v.toString(16).padStart(2,'0');
+    // Find most vibrant (saturated + bright) pixel
+    let bestScore = -1, bR = 220, bG = 80, bB = 30;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], g = d[i+1], b = d[i+2];
+      const max = Math.max(r,g,b), min = Math.min(r,g,b);
+      const sat = max > 0 ? (max-min)/max : 0;
+      const bright = max/255;
+      const score = sat * bright * bright; // weight brightness²
+      if (score > bestScore && bright > 0.2) { bestScore=score; bR=r; bG=g; bB=b; }
+    }
+    // Normalize to full brightness
+    const mx = Math.max(bR,bG,bB,1);
+    const vR = Math.min(255, Math.round(bR*230/mx));
+    const vG = Math.min(255, Math.round(bG*230/mx));
+    const vB = Math.min(255, Math.round(bB*230/mx));
+    const darkHex   = `#${h2(Math.round(bR*0.1))}${h2(Math.round(bG*0.1))}${h2(Math.round(bB*0.1))}`;
+    const midHex    = `#${h2(Math.round(vR*0.45))}${h2(Math.round(vG*0.45))}${h2(Math.round(vB*0.45))}`;
+    const brightHex = `#${h2(vR)}${h2(vG)}${h2(vB)}`;
+    const bgHex     = `#${h2(Math.round(bR*0.04))}${h2(Math.round(bG*0.04))}${h2(Math.round(bB*0.04))}`;
+    THEMES.album.stops  = ['#050505', darkHex, midHex, brightHex, '#ffffff'];
+    THEMES.album.accent = brightHex;
+    THEMES.album.bg     = bgHex;
+    document.documentElement.style.setProperty('--accent', brightHex);
+  } catch(e) {}
 }
 
 function startSpotifyPolling() {
@@ -848,13 +972,13 @@ function startSpotifyPolling() {
 // ── STEPPERS ──
 // Config per stepper id: { min, max, step, accelStep, get, set }
 const STEPPERS = {
-  gain:      { min:0.5,  max:8,     step:0.1,  accel:0.5,  decimals:1, get:()=>state.gain,       set:v=>{state.gain=v;} },
+  gain:      { min:0.5,  max:8,     step:0.1,  accel:0.5,  decimals:1, get:()=>state.gain,       set:v=>{state.gain=v; const gq=document.getElementById('gain-quick'); if(gq)gq.value=v; const gqv=document.getElementById('gain-quick-val'); if(gqv)gqv.textContent=v.toFixed(1)+'×';} },
   yscale:    { min:0.5,  max:6,     step:0.1,  accel:0.5,  decimals:1, get:()=>state.yScale,     set:v=>{state.yScale=v;} },
   noise:     { min:0,    max:100,   step:1,    accel:5,    decimals:0, get:()=>state.noiseFloor, set:v=>{state.noiseFloor=v;} },
   smoothing: { min:0,    max:95,    step:1,    accel:5,    decimals:0, get:()=>state.smoothing*100, set:v=>{state.smoothing=v/100;} },
   freqmin:   { min:0,    max:100,   step:5,    accel:20,   decimals:0, get:()=>state.freqMin,    set:v=>{state.freqMin=v;} },
   freqmax:   { min:5000, max:20000, step:500,  accel:2000, decimals:0, get:()=>state.freqMax,    set:v=>{state.freqMax=v;} },
-  bars:      { min:8,    max:128,   step:4,    accel:16,   decimals:0, get:()=>state.barCount,   set:v=>{state.barCount=v; document.getElementById('bar-count-quick').value=v; document.getElementById('bar-quick-val').textContent=v;} },
+  bars:      { min:8,    max:128,   step:1,    accel:4,    decimals:0, get:()=>state.barCount,   set:v=>{state.barCount=v;} },
   round:     { min:0,    max:20,    step:1,    accel:4,    decimals:0, get:()=>state.roundness,  set:v=>{state.roundness=v;} },
 };
 
@@ -866,6 +990,7 @@ function stepperSet(id, val) {
   cfg.set(val);
   const input = document.getElementById(id);
   if (input) input.value = val;
+  saveSettings();
 }
 
 function applyStepperInput(id) {
@@ -914,7 +1039,6 @@ function initSteppers() {
 }
 
 function updateSettings() {
-  // Only mode and theme come from selects — all other values managed by steppers
   const modeEl = document.getElementById('viz-mode');
   const themeEl = document.getElementById('color-theme');
   if (modeEl) state.vizMode = modeEl.value;
@@ -922,12 +1046,7 @@ function updateSettings() {
   THEMES[state.colorTheme] && document.documentElement.style.setProperty('--accent', THEMES[state.colorTheme].accent);
   const modeQuick = document.getElementById('mode-quick');
   if (modeQuick) modeQuick.value = state.vizMode;
-  const fd2 = document.getElementById('freq-display');
-  if (fd2) fd2.textContent = `${state.freqMin} Hz — ${(state.freqMax/1000).toFixed(0)} kHz`;
-  const bcq = document.getElementById('bar-count-quick');
-  const bqv = document.getElementById('bar-quick-val');
-  if (bcq) bcq.value = state.barCount;
-  if (bqv) bqv.textContent = state.barCount;
+  saveSettings();
 }
 
 // ── FULLSCREEN ──
@@ -955,6 +1074,7 @@ function setToggle(key, val) {
     document.getElementById('blur-on').classList.toggle('active',val);
     document.getElementById('blur-off').classList.toggle('active',!val);
   }
+  saveSettings();
 }
 
 function setTheme(theme,el) {
@@ -963,6 +1083,11 @@ function setTheme(theme,el) {
   document.querySelectorAll('.color-btn').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
   document.documentElement.style.setProperty('--accent',THEMES[theme].accent);
+  if (theme==='album') {
+    const artEl=document.getElementById('album-art');
+    if (artEl.classList.contains('visible')) extractAlbumColors(artEl);
+  }
+  saveSettings();
 }
 
 function toggleSettings() {
@@ -976,8 +1101,353 @@ function saveClientId() {
   if(v) localStorage.setItem('spotify_client_id',v);
 }
 
+// ── AUTO CALIBRATE ──
+const cal = { active:false, intervalId:null, currentPhase:null, pending:{ noiseFloor:null, gain:null, yScale:null } };
+
+function startCalibration() {
+  if (!state.micActive || !state.analyser) { alert('Enable the microphone first (tap MIC).'); return; }
+  if (state.settingsOpen) toggleSettings();
+  cal.active = true;
+  cal.pending = { noiseFloor:null, gain:null, yScale:null };
+  document.getElementById('cal-noise-status').textContent = 'NOT RUN';
+  document.getElementById('cal-music-status').textContent = 'NOT RUN';
+  document.getElementById('cal-noise-btn').textContent = 'CALIBRATE';
+  document.getElementById('cal-music-btn').textContent = 'CALIBRATE';
+  calShowPage('main');
+  document.getElementById('cal-overlay').classList.add('visible');
+}
+
+function calShowPage(page) {
+  document.querySelectorAll('.cal-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('cal-page-' + page).classList.add('active');
+}
+
+function calBegin(phase) {
+  if (!cal.active) return;
+  cal.currentPhase = phase;
+  const isNoise = phase === 'noise';
+  document.getElementById('cal-instr-title').textContent = isNoise ? 'SILENCE' : 'PLAY MUSIC';
+  document.getElementById('cal-instr-msg').innerHTML = isNoise
+    ? 'Turn off all music and make the room quiet.<br>Tap START when ready.'
+    : 'Start playing music at your normal listening volume.<br>Tap START when it\'s playing.';
+  calShowPage('instr');
+}
+
+function calConfirm() {
+  const phase = cal.currentPhase;
+  const isNoise = phase === 'noise';
+  const duration = isNoise ? 5 : 7;
+  document.getElementById('cal-rec-title').textContent = isNoise ? 'SILENCE' : 'PLAY MUSIC';
+  document.getElementById('cal-rec-msg').textContent = isNoise
+    ? 'Measuring ambient noise — stay quiet…'
+    : 'Measuring signal levels — keep music playing…';
+  document.getElementById('cal-countdown').textContent = duration;
+  document.getElementById('cal-bar-fill').style.width = '0%';
+  calShowPage('rec');
+  const samples = [];
+  let elapsed = 0; const total = duration * 1000;
+  clearInterval(cal.intervalId);
+  cal.intervalId = setInterval(() => {
+    if (!cal.active) { clearInterval(cal.intervalId); return; }
+    elapsed += 100;
+    document.getElementById('cal-bar-fill').style.width = (elapsed / total * 100) + '%';
+    document.getElementById('cal-countdown').textContent = Math.max(0, Math.ceil((total - elapsed) / 1000));
+    const s = collectCalSample(); if (s) samples.push(s);
+    if (elapsed >= total) {
+      clearInterval(cal.intervalId);
+      if (isNoise) {
+        cal.pending.noiseFloor = computeNoiseFloor(samples);
+        document.getElementById('cal-noise-status').textContent = '✓  ' + cal.pending.noiseFloor + '%';
+        document.getElementById('cal-noise-btn').textContent = 'REDO';
+      } else {
+        const { gain, yScale } = computeMusicSettings(samples, cal.pending.noiseFloor ?? state.noiseFloor);
+        cal.pending.gain = gain; cal.pending.yScale = yScale;
+        document.getElementById('cal-music-status').textContent = `✓  ${gain.toFixed(1)}×  ·  ${yScale.toFixed(1)}×`;
+        document.getElementById('cal-music-btn').textContent = 'REDO';
+      }
+      calShowPage('main');
+    }
+  }, 100);
+}
+
+function collectCalSample() {
+  if (!state.analyser) return null;
+  const N = state.barCount, fd = new Float32Array(state.analyser.frequencyBinCount);
+  state.analyser.getFloatFrequencyData(fd);
+  const nyq = state.audioCtx.sampleRate / 2, binHz = nyq / fd.length;
+  const minBin = Math.max(0, Math.floor(state.freqMin / binHz));
+  const maxBin = Math.min(fd.length - 1, Math.ceil(state.freqMax / binHz));
+  const range = maxBin - minBin;
+  const vals = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const s2 = minBin + Math.floor((i/N)*range), e2 = minBin + Math.floor(((i+1)/N)*range);
+    let mx = -Infinity; for (let b = s2; b <= e2; b++) mx = Math.max(mx, fd[b]);
+    const cf = ((s2+e2)/2) * binHz;
+    const freqB = Math.max(-22, Math.min(22, 3.5 * Math.log2(Math.max(20, cf) / 1000)));
+    vals[i] = Math.max(0, mx + freqB + 90); // shifted 0–90 dB range, no gain, no noise, no yscale
+  }
+  return vals;
+}
+
+function computeNoiseFloor(samples) {
+  if (!samples.length) return 0;
+  const N = samples[0].length;
+  const peakPerBar = new Float32Array(N);
+  for (const s of samples) for (let i = 0; i < N; i++) peakPerBar[i] = Math.max(peakPerBar[i], s[i]);
+  const sorted = [...peakPerBar].sort((a,b) => a-b);
+  const noiseDb = sorted[Math.floor(sorted.length * 0.9)];
+  return Math.min(85, Math.max(0, Math.round((noiseDb * 1.3) / 0.45)));
+}
+
+function computeMusicSettings(samples, noiseFloor) {
+  if (!samples.length) return { gain: state.gain, yScale: state.yScale };
+  const N = samples[0].length, noiseOffsetDb = noiseFloor * 0.45;
+  const samplePeaks = samples.map(s => {
+    let mx = 0;
+    for (let i = 0; i < N; i++) {
+      const nf = noiseOffsetDb * Math.max(0.05, 1 - (i/N)*0.95);
+      mx = Math.max(mx, Math.max(0, s[i] - nf));
+    }
+    return mx;
+  });
+  const sortedPeaks = [...samplePeaks].sort((a,b) => a-b);
+  const musicPeakDb = sortedPeaks[Math.floor(sortedPeaks.length * 0.85)] || 1;
+  const gainBoostDb = 81 - musicPeakDb;
+  const gain = clamp(parseFloat((1 + gainBoostDb / 8).toFixed(1)), 0.5, 8);
+  const allNorms = [];
+  for (const s of samples) for (let i = 0; i < N; i++) {
+    const nf = noiseOffsetDb * Math.max(0.05, 1 - (i/N)*0.95);
+    const norm = Math.max(0, s[i] + gainBoostDb - nf) / 90;
+    if (norm > 0.04) allNorms.push(norm);
+  }
+  allNorms.sort((a,b) => a-b);
+  let yScale = 1.5;
+  if (allNorms.length > 20) {
+    const med = allNorms[Math.floor(allNorms.length * 0.45)];
+    if (med > 0.02 && med < 0.97) yScale = clamp(parseFloat((Math.log(0.5) / Math.log(med)).toFixed(1)), 0.5, 6);
+  }
+  return { gain, yScale };
+}
+
+function calApply() {
+  const { noiseFloor, gain, yScale } = cal.pending;
+  if (noiseFloor !== null) { state.noiseFloor = noiseFloor; const el = document.getElementById('noise'); if (el) el.value = noiseFloor; }
+  if (gain !== null) {
+    state.gain = gain;
+    const el = document.getElementById('gain'); if (el) el.value = gain;
+    const gq = document.getElementById('gain-quick'); if (gq) gq.value = gain;
+    const gqv = document.getElementById('gain-quick-val'); if (gqv) gqv.textContent = gain.toFixed(1) + '×';
+  }
+  if (yScale !== null) { state.yScale = yScale; const el = document.getElementById('yscale'); if (el) el.value = yScale; }
+  if (noiseFloor !== null || gain !== null || yScale !== null) saveSettings();
+  cancelCalibration();
+}
+
+function cancelCalibration() {
+  cal.active = false; clearInterval(cal.intervalId);
+  document.getElementById('cal-overlay').classList.remove('visible');
+}
+
+// ── GESTURE CONTROLS ──
+const gest = {
+  ptrs: new Map(), mode:null, locked:false, suppressClick:false,
+  startVals:{}, startDistX:0, startDistY:0, startCY:0, canvasW:0, hudTimer:null,
+};
+
+function showHud(label, val) {
+  document.getElementById('gesture-label').textContent = label;
+  document.getElementById('gesture-val').textContent = val;
+  const hud = document.getElementById('gesture-hud');
+  hud.classList.add('visible');
+  clearTimeout(gest.hudTimer);
+  gest.hudTimer = setTimeout(() => hud.classList.remove('visible'), 1800);
+}
+
+function initGestures() {
+  const el = document.getElementById('viz-container');
+  const THRESH = 14;
+
+  el.addEventListener('pointerdown', e => {
+    if (e.target.closest('#settings-drawer,#cal-overlay,.cal-btn,.btn,.stepper-btn,.toggle-opt,.color-btn,button,select')) return;
+    gest.ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY, sx:e.clientX, sy:e.clientY });
+    const pts = Array.from(gest.ptrs.values());
+    const sv = { gain:state.gain, noiseFloor:state.noiseFloor, yScale:state.yScale, freqMin:state.freqMin, freqMax:state.freqMax, barCount:state.barCount };
+    if (pts.length === 1) { gest.mode=null; gest.locked=false; gest.suppressClick=false; gest.startVals=sv; gest.canvasW=el.clientWidth; }
+    if (pts.length === 2) {
+      gest.mode=null; gest.locked=false; gest.startVals=sv;
+      gest.startDistX = Math.abs(pts[0].x - pts[1].x);
+      gest.startDistY = Math.abs(pts[0].y - pts[1].y);
+      gest.startCY = (pts[0].y + pts[1].y) / 2;
+    }
+    e.preventDefault();
+  }, { passive:false });
+
+  el.addEventListener('pointermove', e => {
+    if (!gest.ptrs.has(e.pointerId)) return;
+    const prev = gest.ptrs.get(e.pointerId);
+    gest.ptrs.set(e.pointerId, { ...prev, x:e.clientX, y:e.clientY });
+    const pts = Array.from(gest.ptrs.values());
+
+    if (pts.length === 1) {
+      const p = pts[0], dx = p.x - p.sx, dy = p.y - p.sy;
+      if (!gest.locked && (Math.abs(dx) > THRESH || Math.abs(dy) > THRESH)) {
+        gest.mode = Math.abs(dy) >= Math.abs(dx) ? 'gain' : (p.sx < gest.canvasW/2 ? 'freqmin' : 'freqmax');
+        gest.locked = true; gest.suppressClick = true;
+      }
+      if (gest.locked) {
+        if (gest.mode === 'gain') {
+          const v = clamp(parseFloat((gest.startVals.gain - dy/120).toFixed(1)), 0.5, 8);
+          state.gain = v;
+          const gainEl = document.getElementById('gain'); if (gainEl) gainEl.value = v;
+          const gq = document.getElementById('gain-quick'); if (gq) gq.value = v;
+          const gqv = document.getElementById('gain-quick-val'); if (gqv) gqv.textContent = v.toFixed(1)+'×';
+          showHud('GAIN', v.toFixed(1)+'×');
+        } else if (gest.mode === 'freqmin') {
+          const v = clamp(Math.round(gest.startVals.freqMin + dx/280*200), 0, 200);
+          state.freqMin = v;
+          const fEl = document.getElementById('freqmin'); if (fEl) fEl.value = v;
+          showHud('MIN FREQ', v+' Hz');
+        } else {
+          const v = clamp(Math.round(gest.startVals.freqMax + dx/280*15000), 5000, 20000);
+          state.freqMax = v;
+          const fEl = document.getElementById('freqmax'); if (fEl) fEl.value = v;
+          showHud('MAX FREQ', (v/1000).toFixed(1)+' kHz');
+        }
+      }
+    } else if (pts.length === 2) {
+      const curDX = Math.abs(pts[0].x-pts[1].x), curDY = Math.abs(pts[0].y-pts[1].y);
+      const curCY = (pts[0].y+pts[1].y)/2;
+      const dDistX = curDX-gest.startDistX, dDistY = curDY-gest.startDistY, dCY = curCY-gest.startCY;
+      if (!gest.locked) {
+        const pinch = Math.max(Math.abs(dDistX), Math.abs(dDistY)), trans = Math.abs(dCY);
+        if (pinch > THRESH || trans > THRESH) {
+          if (trans > pinch) gest.mode='noise';
+          else if (Math.abs(dDistX) >= Math.abs(dDistY)) gest.mode='bars';
+          else gest.mode='yscale';
+          gest.locked=true; gest.suppressClick=true;
+        }
+      }
+      if (gest.locked) {
+        if (gest.mode === 'noise') {
+          const v = clamp(Math.round(gest.startVals.noiseFloor - dCY/160*100), 0, 100);
+          state.noiseFloor = v;
+          const nEl = document.getElementById('noise'); if (nEl) nEl.value = v;
+          showHud('NOISE FLOOR', v+'%');
+        } else if (gest.mode === 'yscale') {
+          const ratio = gest.startDistY > 20 ? curDY/gest.startDistY : 1+dDistY/180;
+          const v = clamp(parseFloat((gest.startVals.yScale * ratio).toFixed(1)), 0.5, 6);
+          state.yScale = v;
+          const yEl = document.getElementById('yscale'); if (yEl) yEl.value = v;
+          showHud('Y-SCALE', v.toFixed(1)+'×');
+        } else {
+          const ratio = gest.startDistX > 20 ? curDX/gest.startDistX : 1+dDistX/180;
+          const v = clamp(Math.round(gest.startVals.barCount * ratio), 8, 128);
+          state.barCount = v;
+          const bEl = document.getElementById('bars'); if (bEl) bEl.value = v;
+          showHud('BARS', ''+v);
+        }
+      }
+    }
+    e.preventDefault();
+  }, { passive:false });
+
+  const onEnd = e => {
+    gest.ptrs.delete(e.pointerId);
+    if (gest.ptrs.size === 0) { if (gest.locked) saveSettings(); gest.mode=null; gest.locked=false; }
+  };
+  el.addEventListener('pointerup', onEnd);
+  el.addEventListener('pointercancel', onEnd);
+}
+
+// ── SETTINGS PERSISTENCE ──
+const SETTINGS_KEYS = ['vizMode','colorTheme','peakHold','bgBlur','gain','yScale','noiseFloor','smoothing','freqMin','freqMax','barCount','roundness','fsPosition'];
+
+function saveSettings() {
+  const out = {};
+  SETTINGS_KEYS.forEach(k => { if (state[k] !== undefined) out[k] = state[k]; });
+  localStorage.setItem('vusic_settings', JSON.stringify(out));
+}
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('vusic_settings') || '{}');
+    SETTINGS_KEYS.forEach(k => { if (saved[k] !== undefined) state[k] = saved[k]; });
+  } catch(e) {}
+}
+
+function syncSettingsUI() {
+  const modeEl = document.getElementById('viz-mode');
+  const themeEl = document.getElementById('color-theme');
+  const modeQuick = document.getElementById('mode-quick');
+  if (modeEl) modeEl.value = state.vizMode;
+  if (themeEl) themeEl.value = state.colorTheme;
+  if (modeQuick) modeQuick.value = state.vizMode;
+  // Steppers
+  Object.keys(STEPPERS).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = parseFloat(STEPPERS[id].get().toFixed(STEPPERS[id].decimals));
+  });
+  // Gain quick slider
+  const gq = document.getElementById('gain-quick');
+  const gqv = document.getElementById('gain-quick-val');
+  if (gq) gq.value = state.gain;
+  if (gqv) gqv.textContent = parseFloat(state.gain).toFixed(1) + '×';
+  // Toggles
+  document.getElementById('peak-on').classList.toggle('active', state.peakHold);
+  document.getElementById('peak-off').classList.toggle('active', !state.peakHold);
+  document.getElementById('blur-on').classList.toggle('active', state.bgBlur);
+  document.getElementById('blur-off').classList.toggle('active', !state.bgBlur);
+  // Accent
+  if (THEMES[state.colorTheme]) document.documentElement.style.setProperty('--accent', THEMES[state.colorTheme].accent);
+  // Color buttons (order matches bottom bar: fire, ice, plasma, acid, mono, album)
+  const themes = ['fire','ice','plasma','acid','mono','album'];
+  const btns = document.querySelectorAll('.color-btn');
+  btns.forEach(b => b.classList.remove('active'));
+  const idx = themes.indexOf(state.colorTheme);
+  if (idx >= 0 && btns[idx]) btns[idx].classList.add('active');
+  // FS position
+  updateFsPosition();
+}
+
+// ── FULLSCREEN OVERLAY POSITION ──
+const FS_POSITIONS = {
+  'bottom-left':  { top:'auto', bottom:'0',   left:'0',   right:'0',    transform:'', bg:'linear-gradient(transparent,rgba(0,0,0,0.88))', justify:'flex-start', align:'flex-end',   center:false },
+  'bottom-right': { top:'auto', bottom:'0',   left:'0',   right:'0',    transform:'', bg:'linear-gradient(transparent,rgba(0,0,0,0.88))', justify:'flex-end',   align:'flex-end',   center:false },
+  'top-left':     { top:'0',    bottom:'auto',left:'0',   right:'0',    transform:'', bg:'linear-gradient(rgba(0,0,0,0.88),transparent)', justify:'flex-start', align:'flex-start', center:false },
+  'top-right':    { top:'0',    bottom:'auto',left:'0',   right:'0',    transform:'', bg:'linear-gradient(rgba(0,0,0,0.88),transparent)', justify:'flex-end',   align:'flex-start', center:false },
+  'center':       { top:'50%',  bottom:'auto',left:'50%', right:'auto', transform:'translate(-50%,-50%)', bg:'rgba(0,0,0,0.75)', justify:'center', align:'center', center:true },
+};
+
+function updateFsPosition() {
+  const ov = document.getElementById('fs-overlay');
+  const p = FS_POSITIONS[state.fsPosition] || FS_POSITIONS['bottom-left'];
+  ov.style.top = p.top; ov.style.bottom = p.bottom;
+  ov.style.left = p.left; ov.style.right = p.right;
+  ov.style.transform = p.transform;
+  ov.style.background = p.bg;
+  ov.style.justifyContent = p.justify;
+  ov.style.alignItems = p.align;
+  if (p.center) {
+    ov.style.borderRadius = '16px'; ov.style.padding = '20px 28px';
+    ov.style.flexDirection = 'column'; ov.style.textAlign = 'center'; ov.style.width = 'auto';
+  } else {
+    ov.style.borderRadius = ''; ov.style.padding = '20px 24px 28px';
+    ov.style.flexDirection = ''; ov.style.textAlign = ''; ov.style.width = '';
+  }
+  const sel = document.getElementById('fs-position');
+  if (sel) sel.value = state.fsPosition;
+}
+
+function setFsPos(pos) {
+  state.fsPosition = pos;
+  updateFsPosition();
+  saveSettings();
+}
+
 // ── INIT ──
 function init() {
+  loadSettings();
+  syncSettingsUI();
   const sid=localStorage.getItem('spotify_client_id');
   if(sid) document.getElementById('spotify-client-id').value=sid;
   const p=new URLSearchParams(window.location.search);
@@ -993,9 +1463,14 @@ document.addEventListener('DOMContentLoaded', () => {
   initSteppers();
   draw();
   init();
+  initGestures();
   document.getElementById('main-canvas').addEventListener('click', () => {
+    if (gest.suppressClick) { gest.suppressClick = false; return; }
     if (fsActive) toggleFullscreen();
   });
+  const gq = document.getElementById('gain-quick');
+  const gqv = document.getElementById('gain-quick-val');
+  if (gq && gqv) gq.addEventListener('input', () => { gqv.textContent = parseFloat(gq.value).toFixed(1) + '×'; });
 });
 </script>
 </body>
