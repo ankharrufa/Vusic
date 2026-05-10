@@ -467,7 +467,7 @@
         <div class="stepper" id="s-freqmax">
           <button class="stepper-btn" data-id="freqmax" data-dir="-1">−</button>
           <div class="stepper-sep"></div>
-          <input class="stepper-input" id="freqmax" type="number" value="15000" min="5000" max="20000" step="500" inputmode="none" readonly>
+          <input class="stepper-input" id="freqmax" type="number" value="15000" min="5000" max="35000" step="500" inputmode="none" readonly>
           <div class="stepper-unit">Hz</div>
           <div class="stepper-sep"></div>
           <button class="stepper-btn" data-id="freqmax" data-dir="1">+</button>
@@ -650,6 +650,20 @@ function drawBackground() {
   bgCtx.fillStyle=g; bgCtx.fillRect(0,0,W,H);
 }
 
+// Center frequency of bar i (no FFT data needed)
+function barCenterHz(i, N) {
+  const fMin = Math.max(1, state.freqMin), fMax = state.freqMax;
+  if (state.freqScale === 'log') {
+    const lMin = Math.log2(fMin), lMax = Math.log2(fMax);
+    return Math.pow(2, lMin + ((i+0.5)/N)*(lMax-lMin));
+  } else if (state.freqScale === 'sqrt') {
+    const sMin = Math.sqrt(fMin), sMax = Math.sqrt(fMax);
+    const s = sMin + ((i+0.5)/N)*(sMax-sMin);
+    return s*s;
+  }
+  return fMin + ((i+0.5)/N)*(fMax-fMin);
+}
+
 // Maps bar index i (0…N-1) to FFT bin range {s2,e2} using state.freqScale
 function freqBins(i, N, binHz, binCount) {
   const fMin = Math.max(1, state.freqMin), fMax = state.freqMax;
@@ -821,14 +835,32 @@ function drawRadial(W,H,N) {
 function drawBlocks(W,H,N,mirror) {
   const rows=16, barW=W/N, gap=2;
   const blockH = mirror ? (H/2)/rows : H/rows;
-  const domIdx = state.bars.length ? state.bars.indexOf(Math.max(...state.bars)) : -1;
-  const domMag  = domIdx >= 0 ? state.bars[domIdx] : 0;
+
+  // Find dominant bar per frequency band: bass <250 Hz, mid 250–4k, high >=4k
+  const SPLITS = [250, 4000];
+  const bandDom = [-1,-1,-1], bandMag = [0,0,0];
+  for (let i=0;i<N;i++) {
+    const hz = barCenterHz(i,N);
+    const b = hz < SPLITS[0] ? 0 : hz < SPLITS[1] ? 1 : 2;
+    if (state.bars[i] > bandMag[b]) { bandMag[b]=state.bars[i]; bandDom[b]=i; }
+  }
+
+  // Per-band flash timers for Hz labels
+  if (!state.domBands) state.domBands=[{idx:-1,hz:0,timer:0},{idx:-1,hz:0,timer:0},{idx:-1,hz:0,timer:0}];
+  for (let b=0;b<3;b++) {
+    const d=state.domBands[b];
+    if (bandDom[b]>=0 && bandMag[b]>0.15) {
+      if (bandDom[b]!==d.idx) { d.idx=bandDom[b]; d.hz=barCenterHz(bandDom[b],N); d.timer=90; }
+      else d.timer=Math.max(0,d.timer-1);
+    } else { d.idx=-1; d.timer=Math.max(0,d.timer-1); }
+  }
 
   for(let i=0;i<N;i++){
     const mag=state.bars[i];
     const filledRows=Math.round(mag*rows);
     const bw=barW-gap, x=i*barW+gap/2;
-    const isDom = i===domIdx && domMag>0.15;
+    const bandB=bandDom.indexOf(i);
+    const isDom=bandB>=0 && bandMag[bandB]>0.15;
 
     for(let r=0;r<filledRows;r++){
       const t=r/rows;
@@ -843,7 +875,6 @@ function drawBlocks(W,H,N,mirror) {
       } else {
         const y=H/2-(r+1)*blockH+gap/2;
         mainCtx.fillRect(x,y,bw,blockH-gap);
-        // bottom half (downward), slightly dimmer
         mainCtx.fillStyle = isDom ? 'rgba(255,255,255,0.6)' : getBarColor(t*0.7);
         const y2=H/2+r*blockH+gap/2;
         mainCtx.fillRect(x,y2,bw,blockH-gap);
@@ -851,24 +882,39 @@ function drawBlocks(W,H,N,mirror) {
     }
     mainCtx.shadowBlur=0;
 
-    // Peak hold line for blocks
+    // Peak hold line
     if(state.peakHold && state.blockPeaks[i]>0.02){
       const peakRow=Math.round(state.blockPeaks[i]*rows);
-      const peakColor='#ffffff';
-      mainCtx.fillStyle=peakColor; mainCtx.shadowColor=peakColor; mainCtx.shadowBlur=8;
-
+      mainCtx.fillStyle='#ffffff'; mainCtx.shadowColor='#ffffff'; mainCtx.shadowBlur=8;
       if (!mirror) {
-        const peakY=H-peakRow*blockH;
-        mainCtx.fillRect(x,peakY,bw,2);
+        mainCtx.fillRect(x,H-peakRow*blockH,bw,2);
       } else {
-        const peakY=H/2-peakRow*blockH;
-        mainCtx.fillRect(x,peakY,bw,2);
-        const peakY2=H/2+peakRow*blockH-2;
-        mainCtx.fillRect(x,peakY2,bw,2);
+        mainCtx.fillRect(x,H/2-peakRow*blockH,bw,2);
+        mainCtx.fillRect(x,H/2+peakRow*blockH-2,bw,2);
       }
       mainCtx.shadowBlur=0;
     }
   }
+
+  // Hz labels above each band's dominant bar — flash on change, then fade
+  mainCtx.font='bold 10px "DM Mono",monospace';
+  mainCtx.textAlign='center';
+  for (let b=0;b<3;b++) {
+    const d=state.domBands[b];
+    if (d.timer<=0 || d.idx<0) continue;
+    const opacity=Math.min(1, d.timer/15);
+    const i=d.idx, mag=state.bars[i];
+    const filledRows=Math.round(mag*rows);
+    const bx=i*barW+barW/2;
+    const topY=mirror ? H/2-filledRows*blockH : H-filledRows*blockH;
+    const labelY=Math.max(14, topY-8);
+    const hz=d.hz;
+    const label=hz>=1000 ? (hz/1000).toFixed(1)+'k' : Math.round(hz)+'';
+    mainCtx.shadowColor='#ffffff'; mainCtx.shadowBlur=10;
+    mainCtx.fillStyle=`rgba(255,255,255,${opacity})`;
+    mainCtx.fillText(label, bx, labelY);
+  }
+  mainCtx.shadowBlur=0; mainCtx.textAlign='left';
 
   // Center line for mirror
   if (mirror) { mainCtx.fillStyle='rgba(255,255,255,0.08)'; mainCtx.fillRect(0,H/2-1,W,2); }
@@ -1014,7 +1060,7 @@ const STEPPERS = {
   noise:     { min:0,    max:100,   step:1,    accel:5,    decimals:0, get:()=>state.noiseFloor, set:v=>{state.noiseFloor=v;} },
   smoothing: { min:0,    max:95,    step:1,    accel:5,    decimals:0, get:()=>state.smoothing*100, set:v=>{state.smoothing=v/100;} },
   freqmin:   { min:0,    max:200,   step:5,    accel:20,   decimals:0, get:()=>state.freqMin,    set:v=>{state.freqMin=v;} },
-  freqmax:   { min:5000, max:20000, step:500,  accel:2000, decimals:0, get:()=>state.freqMax,    set:v=>{state.freqMax=v;} },
+  freqmax:   { min:5000, max:35000, step:500,  accel:2000, decimals:0, get:()=>state.freqMax,    set:v=>{state.freqMax=v;} },
   bars:      { min:8,    max:128,   step:1,    accel:4,    decimals:0, get:()=>state.barCount,   set:v=>{state.barCount=v;} },
   round:     { min:0,    max:20,    step:1,    accel:4,    decimals:0, get:()=>state.roundness,  set:v=>{state.roundness=v;} },
 };
