@@ -588,7 +588,7 @@ const state = {
   animFrame: null, spotifyToken: null, spotifyInterval: null, currentTrack: null,
   vizMode: 'blocks-mirror', colorTheme: 'fire',
   freqMin: 20, freqMax: 15000, freqScale: 'sqrt', barCount: 25,
-  smoothing: 0.10, gain: 5, yScale: 2.0, noiseFloor: 0,
+  smoothing: 0.10, gain: 5, yScale: 1.5, noiseFloor: 0,
   roundness: 0, peakHold: true, bgBlur: true,
   fsPosition: 'bottom-left',
   peaks: [], peakTimers: [], bars: [],
@@ -722,8 +722,8 @@ function draw() {
       const noiseDb = state.noiseFloor * 0.45 * noiseFreqFactor;
       db = Math.max(0, db - noiseDb);
       let norm = db / 90;
-      const ys = Math.max(0.1, state.yScale);
-      norm = Math.pow(Math.max(0,Math.min(1,norm)), 1/ys);
+      const ys = Math.max(1, state.yScale);
+      norm = Math.pow(Math.max(0,Math.min(1,norm)), ys);
       raw[i] = Math.min(1, norm);
     }
   }
@@ -1057,7 +1057,7 @@ function startSpotifyPolling() {
 // Config per stepper id: { min, max, step, accelStep, get, set }
 const STEPPERS = {
   gain:      { min:0.5,  max:8,     step:0.1,  accel:0.5,  decimals:1, get:()=>state.gain,       set:v=>{state.gain=v; const gq=document.getElementById('gain-quick'); if(gq)gq.value=v; const gqv=document.getElementById('gain-quick-val'); if(gqv)gqv.textContent=v.toFixed(1)+'×';} },
-  yscale:    { min:0.5,  max:6,     step:0.1,  accel:0.5,  decimals:1, get:()=>state.yScale,     set:v=>{state.yScale=v;} },
+  yscale:    { min:1,    max:5,     step:0.1,  accel:0.5,  decimals:1, get:()=>state.yScale,     set:v=>{state.yScale=v;} },
   noise:     { min:0,    max:100,   step:1,    accel:5,    decimals:0, get:()=>state.noiseFloor, set:v=>{state.noiseFloor=v;} },
   smoothing: { min:0,    max:95,    step:1,    accel:5,    decimals:0, get:()=>state.smoothing*100, set:v=>{state.smoothing=v/100;} },
   freqmin:   { min:0,    max:200,   step:5,    accel:20,   decimals:0, get:()=>state.freqMin,    set:v=>{state.freqMin=v;} },
@@ -1417,7 +1417,7 @@ function initGestures() {
           showHud('NOISE FLOOR', v+'%');
         } else if (gest.mode === 'yscale') {
           const ratio = gest.startDistY > 20 ? curDY/gest.startDistY : 1+dDistY/180;
-          const v = clamp(parseFloat((gest.startVals.yScale * ratio).toFixed(1)), 0.5, 6);
+          const v = clamp(parseFloat((gest.startVals.yScale * ratio).toFixed(1)), 1, 5);
           state.yScale = v;
           const yEl = document.getElementById('yscale'); if (yEl) yEl.value = v;
           showHud('Y-SCALE', v.toFixed(1)+'×');
