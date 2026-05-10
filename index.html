@@ -64,7 +64,7 @@
   #header-controls { display:flex; gap:6px; align-items:center; flex-shrink:0; }
 
   /* ── CANVAS ── */
-  #viz-container { position:relative; overflow:hidden; background:#000; }
+  #viz-container { position:relative; overflow:hidden; background:#000; touch-action:none; user-select:none; -webkit-user-select:none; }
   #bg-canvas, #main-canvas { position:absolute; inset:0; width:100%; height:100%; z-index:1; }
 
   /* When settings open, let clicks pass through canvas to drawer */
@@ -653,11 +653,13 @@ function draw() {
     state.analyser.getFloatFrequencyData(fd);
     const nyq = state.audioCtx.sampleRate/2;
     const binHz = nyq/fd.length;
-    const minBin = Math.max(0,Math.floor(state.freqMin/binHz));
-    const maxBin = Math.min(fd.length-1,Math.ceil(state.freqMax/binHz));
-    const range = maxBin-minBin;
+    const logFMin = Math.log2(Math.max(1, state.freqMin));
+    const logFMax = Math.log2(state.freqMax);
     for (let i=0;i<N;i++) {
-      const s2=minBin+Math.floor((i/N)*range), e2=minBin+Math.floor(((i+1)/N)*range);
+      const f0 = Math.pow(2, logFMin + (i/N)*(logFMax-logFMin));
+      const f1 = Math.pow(2, logFMin + ((i+1)/N)*(logFMax-logFMin));
+      const s2 = Math.max(0, Math.floor(f0/binHz));
+      const e2 = Math.min(fd.length-1, Math.ceil(f1/binHz));
       let mx=-Infinity;
       for (let b=s2;b<=e2;b++) mx=Math.max(mx,fd[b]);
       const gainDb = (state.gain - 1) * 8;
@@ -944,17 +946,18 @@ function extractAlbumColors(img) {
       const sat = max > 0 ? (max-min)/max : 0;
       const bright = max/255;
       const score = sat * bright * bright; // weight brightness²
-      if (score > bestScore && bright > 0.2) { bestScore=score; bR=r; bG=g; bB=b; }
+      if (score > bestScore && bright > 0.25) { bestScore=score; bR=r; bG=g; bB=b; }
     }
-    // Normalize to full brightness
+    // Normalize to full brightness; ensure accent is never near-black
     const mx = Math.max(bR,bG,bB,1);
-    const vR = Math.min(255, Math.round(bR*230/mx));
-    const vG = Math.min(255, Math.round(bG*230/mx));
-    const vB = Math.min(255, Math.round(bB*230/mx));
-    const darkHex   = `#${h2(Math.round(bR*0.1))}${h2(Math.round(bG*0.1))}${h2(Math.round(bB*0.1))}`;
-    const midHex    = `#${h2(Math.round(vR*0.45))}${h2(Math.round(vG*0.45))}${h2(Math.round(vB*0.45))}`;
+    const scale = Math.max(230, mx) / mx;
+    const vR = Math.min(255, Math.round(bR*scale));
+    const vG = Math.min(255, Math.round(bG*scale));
+    const vB = Math.min(255, Math.round(bB*scale));
+    const darkHex   = `#${h2(Math.round(vR*0.2))}${h2(Math.round(vG*0.2))}${h2(Math.round(vB*0.2))}`;
+    const midHex    = `#${h2(Math.round(vR*0.58))}${h2(Math.round(vG*0.58))}${h2(Math.round(vB*0.58))}`;
     const brightHex = `#${h2(vR)}${h2(vG)}${h2(vB)}`;
-    const bgHex     = `#${h2(Math.round(bR*0.04))}${h2(Math.round(bG*0.04))}${h2(Math.round(bB*0.04))}`;
+    const bgHex     = `#${h2(Math.round(vR*0.04))}${h2(Math.round(vG*0.04))}${h2(Math.round(vB*0.04))}`;
     THEMES.album.stops  = ['#050505', darkHex, midHex, brightHex, '#ffffff'];
     THEMES.album.accent = brightHex;
     THEMES.album.bg     = bgHex;
@@ -976,7 +979,7 @@ const STEPPERS = {
   yscale:    { min:0.5,  max:6,     step:0.1,  accel:0.5,  decimals:1, get:()=>state.yScale,     set:v=>{state.yScale=v;} },
   noise:     { min:0,    max:100,   step:1,    accel:5,    decimals:0, get:()=>state.noiseFloor, set:v=>{state.noiseFloor=v;} },
   smoothing: { min:0,    max:95,    step:1,    accel:5,    decimals:0, get:()=>state.smoothing*100, set:v=>{state.smoothing=v/100;} },
-  freqmin:   { min:0,    max:100,   step:5,    accel:20,   decimals:0, get:()=>state.freqMin,    set:v=>{state.freqMin=v;} },
+  freqmin:   { min:0,    max:200,   step:5,    accel:20,   decimals:0, get:()=>state.freqMin,    set:v=>{state.freqMin=v;} },
   freqmax:   { min:5000, max:20000, step:500,  accel:2000, decimals:0, get:()=>state.freqMax,    set:v=>{state.freqMax=v;} },
   bars:      { min:8,    max:128,   step:1,    accel:4,    decimals:0, get:()=>state.barCount,   set:v=>{state.barCount=v;} },
   round:     { min:0,    max:20,    step:1,    accel:4,    decimals:0, get:()=>state.roundness,  set:v=>{state.roundness=v;} },
@@ -1175,16 +1178,19 @@ function collectCalSample() {
   const N = state.barCount, fd = new Float32Array(state.analyser.frequencyBinCount);
   state.analyser.getFloatFrequencyData(fd);
   const nyq = state.audioCtx.sampleRate / 2, binHz = nyq / fd.length;
-  const minBin = Math.max(0, Math.floor(state.freqMin / binHz));
-  const maxBin = Math.min(fd.length - 1, Math.ceil(state.freqMax / binHz));
-  const range = maxBin - minBin;
+  const logFMin2 = Math.log2(Math.max(1, state.freqMin));
+  const logFMax2 = Math.log2(state.freqMax);
   const vals = new Float32Array(N);
   for (let i = 0; i < N; i++) {
-    const s2 = minBin + Math.floor((i/N)*range), e2 = minBin + Math.floor(((i+1)/N)*range);
+    const f0 = Math.pow(2, logFMin2 + (i/N)*(logFMax2-logFMin2));
+    const f1 = Math.pow(2, logFMin2 + ((i+1)/N)*(logFMax2-logFMin2));
+    const s2 = Math.max(0, Math.floor(f0/binHz));
+    const e2 = Math.min(fd.length-1, Math.ceil(f1/binHz));
     let mx = -Infinity; for (let b = s2; b <= e2; b++) mx = Math.max(mx, fd[b]);
-    const cf = ((s2+e2)/2) * binHz;
-    const freqB = Math.max(-22, Math.min(22, 3.5 * Math.log2(Math.max(20, cf) / 1000)));
-    vals[i] = Math.max(0, mx + freqB + 90); // shifted 0–90 dB range, no gain, no noise, no yscale
+    // Raw shifted dB only — no frequency correction, no clamping.
+    // freqB is a display transform and would push low-freq bins negative,
+    // making silence look like zero and breaking the noise floor measurement.
+    vals[i] = mx + 90;
   }
   return vals;
 }
@@ -1196,7 +1202,7 @@ function computeNoiseFloor(samples) {
   for (const s of samples) for (let i = 0; i < N; i++) peakPerBar[i] = Math.max(peakPerBar[i], s[i]);
   const sorted = [...peakPerBar].sort((a,b) => a-b);
   const noiseDb = sorted[Math.floor(sorted.length * 0.9)];
-  return Math.min(85, Math.max(0, Math.round((noiseDb * 1.3) / 0.45)));
+  return Math.min(85, Math.max(15, Math.round((noiseDb * 1.5) / 0.45)));
 }
 
 function computeMusicSettings(samples, noiseFloor) {
@@ -1212,8 +1218,8 @@ function computeMusicSettings(samples, noiseFloor) {
   });
   const sortedPeaks = [...samplePeaks].sort((a,b) => a-b);
   const musicPeakDb = sortedPeaks[Math.floor(sortedPeaks.length * 0.85)] || 1;
-  const gainBoostDb = 81 - musicPeakDb;
-  const gain = clamp(parseFloat((1 + gainBoostDb / 8).toFixed(1)), 0.5, 8);
+  const gainBoostDb = 63 - musicPeakDb;
+  const gain = clamp(parseFloat((1 + gainBoostDb / 8).toFixed(1)), 0.5, 6);
   const allNorms = [];
   for (const s of samples) for (let i = 0; i < N; i++) {
     const nf = noiseOffsetDb * Math.max(0.05, 1 - (i/N)*0.95);
