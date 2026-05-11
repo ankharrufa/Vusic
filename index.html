@@ -961,54 +961,38 @@ function drawBlocks(W,H,N,mirror) {
   if (mirror) { mainCtx.fillStyle='rgba(255,255,255,0.08)'; mainCtx.fillRect(0,H/2-1,W,2); }
 }
 
-// ── SINGLE BAR (VU meter — block style) ──
+// ── SINGLE BAR (VU meter — single row of bricks) ──
 function drawSingle(W, H) {
   const N = state.bars.length;
   if (!N) return;
 
-  // Overall level: average of all smoothed bars
   const level = Math.min(1, state.bars.reduce((s,v) => s+v, 0) / N * 2.2);
 
-  // Peak hold
   if (level >= state.singlePeak) { state.singlePeak = level; state.singlePeakTimer = 70; }
   else { state.singlePeakTimer--; if (state.singlePeakTimer <= 0) state.singlePeak = Math.max(0, state.singlePeak - 0.012); }
 
-  // Block grid: rows stacked vertically, columns fill left to right
-  const rows = 8, gap = 2;
-  const blockH = Math.round(H * 0.28 / rows);
-  const blockW = blockH; // square blocks
-  const cols   = Math.floor(W / (blockW + gap));
-  const totalW = cols * (blockW + gap) - gap;
-  const startX = Math.round((W - totalW) / 2);
-  const startY = Math.round((H - rows * (blockH + gap) + gap) / 2);
-  const filledCols = Math.round(level * cols);
+  const cols   = state.barCount || 25;
+  const gap    = 3;
+  const blockW = (W - (cols - 1) * gap) / cols;
+  const blockH = Math.round(H * 0.38);
+  const startY = Math.round((H - blockH) / 2);
+  const filled = Math.round(level * cols);
 
-  for (let col = 0; col < filledCols; col++) {
-    const t = col / cols; // horizontal position 0→1
-    for (let row = 0; row < rows; row++) {
-      const rowT = (rows - 1 - row) / rows; // top row = 1 (brightest)
-      // mix horizontal position and row brightness for colour
-      const colorT = Math.max(0, Math.min(1, (t + rowT) / 2));
-      const color = getBarColor(colorT, col, cols);
-      const x = startX + col * (blockW + gap);
-      const y = startY + row * (blockH + gap);
-      const isDomCol = col === filledCols - 1; // leading edge glows
-      mainCtx.fillStyle = isDomCol ? '#ffffff' : color;
-      mainCtx.shadowColor = isDomCol ? '#ffffff' : color;
-      mainCtx.shadowBlur  = isDomCol ? 18 : (rowT > 0.6 ? 8 : 2);
-      mainCtx.fillRect(x, y, blockW, blockH);
-    }
+  for (let col = 0; col < filled; col++) {
+    const t      = cols > 1 ? col / (cols - 1) : 1;
+    const isDom  = col === filled - 1;
+    const color  = isDom ? '#ffffff' : getBarColor(t, col, cols);
+    mainCtx.fillStyle   = color;
+    mainCtx.shadowColor = color;
+    mainCtx.shadowBlur  = isDom ? 22 : (t > 0.7 ? 10 : 3);
+    mainCtx.fillRect(Math.round(col * (blockW + gap)), startY, Math.ceil(blockW), blockH);
   }
   mainCtx.shadowBlur = 0;
 
-  // Peak hold column
   if (state.peakHold && state.singlePeak > 0.02) {
-    const peakCol = Math.round(state.singlePeak * cols);
-    const px = startX + peakCol * (blockW + gap);
-    mainCtx.fillStyle = '#ffffff';
-    mainCtx.shadowColor = '#ffffff';
-    mainCtx.shadowBlur = 10;
-    mainCtx.fillRect(px, startY, 2, rows * (blockH + gap) - gap);
+    const px = Math.round(state.singlePeak * cols) * (blockW + gap);
+    mainCtx.fillStyle = '#ffffff'; mainCtx.shadowColor = '#ffffff'; mainCtx.shadowBlur = 10;
+    mainCtx.fillRect(px, startY, 2, blockH);
     mainCtx.shadowBlur = 0;
   }
 }
