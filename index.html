@@ -378,6 +378,7 @@
           <option value="blocks-mirror" selected>BLOCKS MIRROR</option>
           <option value="blocks">BLOCKS</option>
           <option value="radial">RADIAL</option>
+          <option value="single">SINGLE BAR</option>
         </select>
       </div>
 
@@ -389,7 +390,9 @@
           <option value="plasma">⚡ PLASMA</option>
           <option value="acid">☢️ ACID</option>
           <option value="mono">⬜ MONO</option>
-          <option value="album">🎨 ALBUM ART (auto)</option>
+          <option value="spectrum">🌈 SPECTRUM (rainbow vertical)</option>
+          <option value="multi">🎨 MULTI (per-bar colour)</option>
+          <option value="album">🖼 ALBUM ART (auto)</option>
         </select>
       </div>
 
@@ -565,6 +568,7 @@
         <option value="blocks-mirror" selected>BLK MIR</option>
         <option value="blocks">BLOCKS</option>
         <option value="radial">RADIAL</option>
+        <option value="single">SINGLE</option>
       </select>
     </div>
 
@@ -578,6 +582,8 @@
         <div class="color-btn" style="background:linear-gradient(135deg,#bf00ff,#ff0080)" onclick="setTheme('plasma',this)" title="Plasma"></div>
         <div class="color-btn" style="background:linear-gradient(135deg,#00ff88,#aaff00)" onclick="setTheme('acid',this)" title="Acid"></div>
         <div class="color-btn" style="background:linear-gradient(135deg,#fff,#666)" onclick="setTheme('mono',this)" title="Mono"></div>
+        <div class="color-btn" style="background:linear-gradient(to top,#cc0000,#ff6600,#cccc00,#00cc44,#0044ff,#8800cc)" onclick="setTheme('spectrum',this)" title="Spectrum"></div>
+        <div class="color-btn" style="background:linear-gradient(to right,hsl(0,90%,55%),hsl(60,90%,55%),hsl(120,90%,55%),hsl(200,90%,55%),hsl(270,90%,55%))" onclick="setTheme('multi',this)" title="Multi"></div>
         <div class="color-btn" style="background:conic-gradient(#ff6b35,#bf00ff,#00d4ff,#00ff88,#ff6b35)" onclick="setTheme('album',this)" title="Album Art"></div>
       </div>
     </div>
@@ -612,16 +618,19 @@ const state = {
   fsPosition: 'bottom-left',
   peaks: [], peakTimers: [], bars: [],
   blockPeaks: [], blockPeakTimers: [],
+  singlePeak: 0, singlePeakTimer: 0,
   settingsOpen: false,
 };
 
 const THEMES = {
-  fire:   { stops:['#1a0500','#8b1a00','#ff4500','#ff8c00','#ffd700','#ffffff'], accent:'#ff6b35', bg:'#080400' },
-  ice:    { stops:['#000d1a','#003366','#0066cc','#00aaff','#66ddff','#ffffff'], accent:'#00d4ff', bg:'#000810' },
-  plasma: { stops:['#0d0020','#4a0080','#9900cc','#ff00cc','#ff66ff','#ffffff'], accent:'#cc00ff', bg:'#080010' },
-  acid:   { stops:['#001a00','#004d00','#00cc00','#66ff00','#ccff00','#ffffff'], accent:'#00ff88', bg:'#000800' },
-  mono:   { stops:['#111111','#333333','#666666','#999999','#cccccc','#ffffff'], accent:'#cccccc', bg:'#050505' },
-  album:  { stops:['#1a0500','#8b1a00','#ff4500','#ff8c00','#ffd700','#ffffff'], accent:'#ff6b35', bg:'#080400' },
+  fire:     { stops:['#1a0500','#8b1a00','#ff4500','#ff8c00','#ffd700','#ffffff'], accent:'#ff6b35', bg:'#080400' },
+  ice:      { stops:['#000d1a','#003366','#0066cc','#00aaff','#66ddff','#ffffff'], accent:'#00d4ff', bg:'#000810' },
+  plasma:   { stops:['#0d0020','#4a0080','#9900cc','#ff00cc','#ff66ff','#ffffff'], accent:'#cc00ff', bg:'#080010' },
+  acid:     { stops:['#001a00','#004d00','#00cc00','#66ff00','#ccff00','#ffffff'], accent:'#00ff88', bg:'#000800' },
+  mono:     { stops:['#111111','#333333','#666666','#999999','#cccccc','#ffffff'], accent:'#cccccc', bg:'#050505' },
+  spectrum: { stops:['#1a0000','#cc0000','#ff6600','#cccc00','#00cc44','#0044ff','#8800cc','#ffffff'], accent:'#00cc44', bg:'#040500' },
+  multi:    { stops:['#111','#fff'], accent:'#ff4444', bg:'#050505' },
+  album:    { stops:['#1a0500','#8b1a00','#ff4500','#ff8c00','#ffd700','#ffffff'], accent:'#ff6b35', bg:'#080400' },
 };
 
 // ── CANVAS ──
@@ -647,7 +656,15 @@ function lerpColor(stops, t) {
   const c0=hexToRgb(stops[lo]), c1=hexToRgb(stops[hi]);
   return `rgb(${Math.round(c0[0]+(c1[0]-c0[0])*f)},${Math.round(c0[1]+(c1[1]-c0[1])*f)},${Math.round(c0[2]+(c1[2]-c0[2])*f)})`;
 }
-function getBarColor(mag) { return lerpColor(THEMES[state.colorTheme].stops, 0.15 + mag * 0.85); }
+function getBarColor(mag, i, N) {
+  if (state.colorTheme === 'multi' && i !== undefined) {
+    const hue = Math.round((i / N) * 300); // red → purple across bars
+    const l   = Math.round(18 + mag * 65);
+    const s   = Math.round(70 + mag * 28);
+    return `hsl(${hue},${s}%,${l}%)`;
+  }
+  return lerpColor(THEMES[state.colorTheme].stops, 0.15 + mag * 0.85);
+}
 
 // ── BACKGROUND ──
 let bgImage = null;
@@ -764,9 +781,10 @@ function draw() {
   mainCtx.clearRect(0,0,W,H);
 
   switch(state.vizMode) {
-    case 'radial': drawRadial(W,H,N);       break;
-    case 'blocks': drawBlocks(W,H,N,false); break;
-    default:       drawBlocks(W,H,N,true);  break;
+    case 'radial':  drawRadial(W,H,N);       break;
+    case 'blocks':  drawBlocks(W,H,N,false); break;
+    case 'single':  drawSingle(W,H);         break;
+    default:        drawBlocks(W,H,N,true);  break;
   }
 }
 
@@ -777,13 +795,13 @@ function drawBars(W,H,N,mirror) {
     const mag=state.bars[i], x=i*barW+gap/2, bw=barW-gap;
     const bh = mirror ? mag*(H/2) : mag*H;
     const y  = mirror ? H/2-bh   : H-bh;
-    const color=getBarColor(mag);
+    const color=getBarColor(mag,i,N);
     mainCtx.shadowColor=color; mainCtx.shadowBlur=mag>0.5?18:6; mainCtx.fillStyle=color;
     if (r>0&&bh>r*2) { mainCtx.beginPath(); mainCtx.roundRect(x,y,bw,bh,[r,r,0,0]); mainCtx.fill(); }
     else if(bh>0) mainCtx.fillRect(x,y,bw,bh);
 
     if (mirror&&bh>0) {
-      const c2=getBarColor(mag*0.7); mainCtx.fillStyle=c2; mainCtx.shadowColor=c2;
+      const c2=getBarColor(mag*0.7,i,N); mainCtx.fillStyle=c2; mainCtx.shadowColor=c2;
       if(r>0&&bh>r*2){mainCtx.beginPath();mainCtx.roundRect(x,H/2,bw,bh,[0,0,r,r]);mainCtx.fill();}
       else mainCtx.fillRect(x,H/2,bw,bh);
     }
@@ -835,9 +853,9 @@ function drawRadial(W,H,N) {
     const angle=(i/N)*Math.PI*2-Math.PI/2, mag=state.bars[i], len=mag*(maxR-baseR);
     const x1=cx+Math.cos(angle)*baseR,y1=cy+Math.sin(angle)*baseR;
     const x2=cx+Math.cos(angle)*(baseR+len),y2=cy+Math.sin(angle)*(baseR+len);
-    const color=getBarColor(mag);
+    const color=getBarColor(mag,i,N);
     mainCtx.beginPath(); mainCtx.moveTo(x1,y1); mainCtx.lineTo(x2,y2);
-    mainCtx.lineWidth=Math.max(1.5,(W/N)*0.6); mainCtx.strokeStyle=color;
+    mainCtx.lineWidth=Math.max(1,(W/N)*0.3); mainCtx.strokeStyle=color;
     mainCtx.shadowColor=color; mainCtx.shadowBlur=mag>0.5?16:4; mainCtx.lineCap='round'; mainCtx.stroke();
     const x3=cx-Math.cos(angle)*(baseR+len*0.4),y3=cy-Math.sin(angle)*(baseR+len*0.4);
     mainCtx.beginPath(); mainCtx.moveTo(cx-Math.cos(angle)*baseR,cy-Math.sin(angle)*baseR); mainCtx.lineTo(x3,y3);
@@ -883,7 +901,7 @@ function drawBlocks(W,H,N,mirror) {
 
     for(let r=0;r<filledRows;r++){
       const t=r/rows;
-      const color = isDom ? '#ffffff' : getBarColor(t);
+      const color = isDom ? '#ffffff' : getBarColor(t,i,N);
       mainCtx.fillStyle=color;
       mainCtx.shadowColor=color;
       mainCtx.shadowBlur = isDom ? 22 : (r>rows*0.7?10:2);
@@ -894,7 +912,7 @@ function drawBlocks(W,H,N,mirror) {
       } else {
         const y=H/2-(r+1)*blockH+gap/2;
         mainCtx.fillRect(x,y,bw,blockH-gap);
-        mainCtx.fillStyle = isDom ? 'rgba(255,255,255,0.6)' : getBarColor(t*0.7);
+        mainCtx.fillStyle = isDom ? 'rgba(255,255,255,0.6)' : getBarColor(t*0.7,i,N);
         const y2=H/2+r*blockH+gap/2;
         mainCtx.fillRect(x,y2,bw,blockH-gap);
       }
@@ -939,6 +957,57 @@ function drawBlocks(W,H,N,mirror) {
 
   // Center line for mirror
   if (mirror) { mainCtx.fillStyle='rgba(255,255,255,0.08)'; mainCtx.fillRect(0,H/2-1,W,2); }
+}
+
+// ── SINGLE BAR (VU meter) ──
+function drawSingle(W, H) {
+  const N = state.bars.length;
+  if (!N) return;
+
+  // Overall level: average of all smoothed bars
+  const level = Math.min(1, state.bars.reduce((s,v) => s+v, 0) / N * 2.2);
+
+  // Peak hold
+  if (level >= state.singlePeak) { state.singlePeak = level; state.singlePeakTimer = 70; }
+  else { state.singlePeakTimer--; if (state.singlePeakTimer <= 0) state.singlePeak = Math.max(0, state.singlePeak - 0.012); }
+
+  const barH = Math.round(H * 0.28);
+  const barY = Math.round((H - barH) / 2);
+  const fillW = Math.round(level * W);
+
+  if (fillW > 0) {
+    // Horizontal gradient using theme stops (multi gets hue sweep)
+    const g = mainCtx.createLinearGradient(0, 0, W, 0);
+    if (state.colorTheme === 'multi') {
+      for (let h = 0; h <= 300; h += 30) g.addColorStop(h/300, `hsl(${h},90%,55%)`);
+    } else {
+      const stops = THEMES[state.colorTheme].stops;
+      stops.forEach((s, idx) => g.addColorStop(Math.min(1, 0.15 + (idx/(stops.length-1))*0.85), s));
+    }
+    mainCtx.shadowColor = THEMES[state.colorTheme].accent;
+    mainCtx.shadowBlur = 24;
+    mainCtx.fillStyle = g;
+    mainCtx.fillRect(0, barY, fillW, barH);
+    mainCtx.shadowBlur = 0;
+
+    // Bright edge glow at the tip
+    const edgeW = Math.min(6, fillW);
+    const eg = mainCtx.createLinearGradient(fillW - edgeW, 0, fillW, 0);
+    eg.addColorStop(0, 'rgba(255,255,255,0)');
+    eg.addColorStop(1, 'rgba(255,255,255,0.9)');
+    mainCtx.fillStyle = eg;
+    mainCtx.fillRect(fillW - edgeW, barY, edgeW, barH);
+  }
+
+  // Peak hold line
+  if (state.peakHold && state.singlePeak > 0.02) {
+    const px = Math.round(state.singlePeak * W);
+    mainCtx.fillStyle = '#ffffff';
+    mainCtx.shadowColor = '#ffffff';
+    mainCtx.shadowBlur = 10;
+    mainCtx.fillRect(px - 1, barY, 2, barH);
+    mainCtx.shadowBlur = 0;
+  }
 }
 
 // ── MIC ──
@@ -1554,8 +1623,8 @@ function syncSettingsUI() {
   if (sz !== 'small') ov.classList.add('size-'+sz);
   // Accent
   if (THEMES[state.colorTheme]) document.documentElement.style.setProperty('--accent', THEMES[state.colorTheme].accent);
-  // Color buttons (order matches bottom bar: fire, ice, plasma, acid, mono, album)
-  const themes = ['fire','ice','plasma','acid','mono','album'];
+  // Color buttons (order matches bottom bar: fire, ice, plasma, acid, mono, spectrum, multi, album)
+  const themes = ['fire','ice','plasma','acid','mono','spectrum','multi','album'];
   const btns = document.querySelectorAll('.color-btn');
   btns.forEach(b => b.classList.remove('active'));
   const idx = themes.indexOf(state.colorTheme);
