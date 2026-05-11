@@ -760,7 +760,7 @@ function draw() {
       let norm = Math.max(0, db / 90);
       norm = Math.max(0, norm - state.noiseFloor / 100);
       const ys = Math.max(1, state.yScale);
-      norm = Math.pow(Math.min(1, norm), ys);
+      norm = 1 - Math.pow(1 - Math.min(1, norm), ys);
       raw[i] = norm;
     }
   }
