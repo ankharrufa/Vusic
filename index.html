@@ -757,8 +757,10 @@ function draw() {
       const freqBoostDb = Math.max(-22, Math.min(22, 3.5 * Math.log2(Math.max(20, centerFreq) / 1000)));
       let db = mx + gainDb + freqBoostDb;
       db = db + 90;
-      let norm = Math.max(0, db / 90);
-      norm = Math.max(0, norm - state.noiseFloor / 100);
+      const noiseFreqFactor = Math.max(0.05, 1 - (i / N) * 0.95);
+      const noiseDb = state.noiseFloor * 0.45 * noiseFreqFactor;
+      db = Math.max(0, db - noiseDb);
+      let norm = db / 90;
       const ys = Math.max(1, state.yScale);
       norm = 1 - Math.pow(1 - Math.min(1, norm), ys);
       raw[i] = norm;
@@ -1429,39 +1431,36 @@ function computeNoiseFloor(samples) {
   for (const s of samples) for (let i = 0; i < N; i++) peakPerBar[i] = Math.max(peakPerBar[i], s[i]);
   const sorted = [...peakPerBar].sort((a,b) => a-b);
   const noiseDb = sorted[Math.floor(sorted.length * 0.9)];
-  // Convert raw dB (0–90 scale) to normalised display units, add 40% margin
-  const gainDb = (state.gain - 1) * 8;
-  const noiseNorm = Math.min(1, Math.max(0, (noiseDb + gainDb) / 90));
-  return Math.min(80, Math.max(5, Math.round(noiseNorm * 1.4 * 100)));
+  return Math.min(85, Math.max(15, Math.round((noiseDb * 1.5) / 0.45)));
 }
 
 function computeMusicSettings(samples, noiseFloor) {
   if (!samples.length) return { gain: state.gain, yScale: state.yScale };
-  const N = samples[0].length;
-  const noiseGate = noiseFloor / 100;
+  const N = samples[0].length, noiseOffsetDb = noiseFloor * 0.45;
   const samplePeaks = samples.map(s => {
     let mx = 0;
     for (let i = 0; i < N; i++) {
-      mx = Math.max(mx, Math.max(0, s[i] / 90 - noiseGate));
+      const nf = noiseOffsetDb * Math.max(0.05, 1 - (i/N)*0.95);
+      mx = Math.max(mx, Math.max(0, s[i] - nf));
     }
     return mx;
   });
   const sortedPeaks = [...samplePeaks].sort((a,b) => a-b);
-  // musicPeakNorm is already in 0–1 normalised units (after noise gate, before gain)
-  const musicPeakNorm = sortedPeaks[Math.floor(sortedPeaks.length * 0.85)] || 0.01;
-  // Target peak at 0.85 of display (≈ gain multiplier)
-  const gainMult = clamp(0.85 / musicPeakNorm, 0.5, 10);
-  const gain = clamp(parseFloat((1 + (gainMult - 1) / 1.25).toFixed(1)), 0.5, 6);
+  const musicPeakDb = sortedPeaks[Math.floor(sortedPeaks.length * 0.85)] || 1;
+  const gainBoostDb = 63 - musicPeakDb;
+  const gain = clamp(parseFloat((1 + gainBoostDb / 8).toFixed(1)), 0.5, 6);
   const allNorms = [];
   for (const s of samples) for (let i = 0; i < N; i++) {
-    const norm = Math.min(1, Math.max(0, s[i] / 90 - noiseGate) * gainMult);
+    const nf = noiseOffsetDb * Math.max(0.05, 1 - (i/N)*0.95);
+    const norm = Math.max(0, s[i] + gainBoostDb - nf) / 90;
     if (norm > 0.04) allNorms.push(norm);
   }
   allNorms.sort((a,b) => a-b);
   let yScale = 1.5;
   if (allNorms.length > 20) {
     const med = allNorms[Math.floor(allNorms.length * 0.45)];
-    if (med > 0.02 && med < 0.97) yScale = clamp(parseFloat((Math.log(0.5) / Math.log(med)).toFixed(1)), 0.5, 6);
+    // Solve for ys in lift curve: 1-(1-med)^ys = 0.5  →  ys = log(0.5)/log(1-med)
+    if (med > 0.02 && med < 0.97) yScale = clamp(parseFloat((Math.log(0.5) / Math.log(1 - med)).toFixed(1)), 0.5, 6);
   }
   return { gain, yScale };
 }
