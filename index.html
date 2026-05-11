@@ -628,7 +628,7 @@ const THEMES = {
   plasma:   { stops:['#0d0020','#4a0080','#9900cc','#ff00cc','#ff66ff','#ffffff'], accent:'#cc00ff', bg:'#080010' },
   acid:     { stops:['#001a00','#004d00','#00cc00','#66ff00','#ccff00','#ffffff'], accent:'#00ff88', bg:'#000800' },
   mono:     { stops:['#111111','#333333','#666666','#999999','#cccccc','#ffffff'], accent:'#cccccc', bg:'#050505' },
-  spectrum: { stops:['#1a0000','#cc0000','#ff6600','#cccc00','#00cc44','#0044ff','#8800cc','#ffffff'], accent:'#00cc44', bg:'#040500' },
+  spectrum: { stops:['#330000','#dd0000','#ff5500','#ddcc00','#00cc33','#0033cc','#8800cc','#dd00dd','#ffffff'], accent:'#ff5500', bg:'#020200' },
   multi:    { stops:['#111','#fff'], accent:'#ff4444', bg:'#050505' },
   album:    { stops:['#1a0500','#8b1a00','#ff4500','#ff8c00','#ffd700','#ffffff'], accent:'#ff6b35', bg:'#080400' },
 };
@@ -663,7 +663,9 @@ function getBarColor(mag, i, N) {
     const s   = Math.round(70 + mag * 28);
     return `hsl(${hue},${s}%,${l}%)`;
   }
-  return lerpColor(THEMES[state.colorTheme].stops, 0.15 + mag * 0.85);
+  // spectrum: no dark floor — full rainbow visible at any level
+  const floor = state.colorTheme === 'spectrum' ? 0 : 0.15;
+  return lerpColor(THEMES[state.colorTheme].stops, floor + mag * (1 - floor));
 }
 
 // ── BACKGROUND ──
@@ -959,7 +961,7 @@ function drawBlocks(W,H,N,mirror) {
   if (mirror) { mainCtx.fillStyle='rgba(255,255,255,0.08)'; mainCtx.fillRect(0,H/2-1,W,2); }
 }
 
-// ── SINGLE BAR (VU meter) ──
+// ── SINGLE BAR (VU meter — block style) ──
 function drawSingle(W, H) {
   const N = state.bars.length;
   if (!N) return;
@@ -971,41 +973,42 @@ function drawSingle(W, H) {
   if (level >= state.singlePeak) { state.singlePeak = level; state.singlePeakTimer = 70; }
   else { state.singlePeakTimer--; if (state.singlePeakTimer <= 0) state.singlePeak = Math.max(0, state.singlePeak - 0.012); }
 
-  const barH = Math.round(H * 0.28);
-  const barY = Math.round((H - barH) / 2);
-  const fillW = Math.round(level * W);
+  // Block grid: rows stacked vertically, columns fill left to right
+  const rows = 8, gap = 2;
+  const blockH = Math.round(H * 0.28 / rows);
+  const blockW = blockH; // square blocks
+  const cols   = Math.floor(W / (blockW + gap));
+  const totalW = cols * (blockW + gap) - gap;
+  const startX = Math.round((W - totalW) / 2);
+  const startY = Math.round((H - rows * (blockH + gap) + gap) / 2);
+  const filledCols = Math.round(level * cols);
 
-  if (fillW > 0) {
-    // Horizontal gradient using theme stops (multi gets hue sweep)
-    const g = mainCtx.createLinearGradient(0, 0, W, 0);
-    if (state.colorTheme === 'multi') {
-      for (let h = 0; h <= 300; h += 30) g.addColorStop(h/300, `hsl(${h},90%,55%)`);
-    } else {
-      const stops = THEMES[state.colorTheme].stops;
-      stops.forEach((s, idx) => g.addColorStop(Math.min(1, 0.15 + (idx/(stops.length-1))*0.85), s));
+  for (let col = 0; col < filledCols; col++) {
+    const t = col / cols; // horizontal position 0→1
+    for (let row = 0; row < rows; row++) {
+      const rowT = (rows - 1 - row) / rows; // top row = 1 (brightest)
+      // mix horizontal position and row brightness for colour
+      const colorT = Math.max(0, Math.min(1, (t + rowT) / 2));
+      const color = getBarColor(colorT, col, cols);
+      const x = startX + col * (blockW + gap);
+      const y = startY + row * (blockH + gap);
+      const isDomCol = col === filledCols - 1; // leading edge glows
+      mainCtx.fillStyle = isDomCol ? '#ffffff' : color;
+      mainCtx.shadowColor = isDomCol ? '#ffffff' : color;
+      mainCtx.shadowBlur  = isDomCol ? 18 : (rowT > 0.6 ? 8 : 2);
+      mainCtx.fillRect(x, y, blockW, blockH);
     }
-    mainCtx.shadowColor = THEMES[state.colorTheme].accent;
-    mainCtx.shadowBlur = 24;
-    mainCtx.fillStyle = g;
-    mainCtx.fillRect(0, barY, fillW, barH);
-    mainCtx.shadowBlur = 0;
-
-    // Bright edge glow at the tip
-    const edgeW = Math.min(6, fillW);
-    const eg = mainCtx.createLinearGradient(fillW - edgeW, 0, fillW, 0);
-    eg.addColorStop(0, 'rgba(255,255,255,0)');
-    eg.addColorStop(1, 'rgba(255,255,255,0.9)');
-    mainCtx.fillStyle = eg;
-    mainCtx.fillRect(fillW - edgeW, barY, edgeW, barH);
   }
+  mainCtx.shadowBlur = 0;
 
-  // Peak hold line
+  // Peak hold column
   if (state.peakHold && state.singlePeak > 0.02) {
-    const px = Math.round(state.singlePeak * W);
+    const peakCol = Math.round(state.singlePeak * cols);
+    const px = startX + peakCol * (blockW + gap);
     mainCtx.fillStyle = '#ffffff';
     mainCtx.shadowColor = '#ffffff';
     mainCtx.shadowBlur = 10;
-    mainCtx.fillRect(px - 1, barY, 2, barH);
+    mainCtx.fillRect(px, startY, 2, rows * (blockH + gap) - gap);
     mainCtx.shadowBlur = 0;
   }
 }
