@@ -378,7 +378,8 @@
           <option value="blocks-mirror" selected>BLOCKS MIRROR</option>
           <option value="blocks">BLOCKS</option>
           <option value="radial">RADIAL</option>
-          <option value="single">SINGLE BAR</option>
+          <option value="single-h">SINGLE H</option>
+          <option value="single-v">SINGLE V</option>
         </select>
       </div>
 
@@ -428,7 +429,7 @@
         <div class="stepper" id="s-gain">
           <button class="stepper-btn" data-id="gain" data-dir="-1">−</button>
           <div class="stepper-sep"></div>
-          <input class="stepper-input" id="gain" type="number" value="5" min="0.5" max="8" step="0.1" inputmode="none" readonly>
+          <input class="stepper-input" id="gain" type="number" value="5" min="0.5" max="10" step="0.1" inputmode="none" readonly>
           <div class="stepper-unit">×</div>
           <div class="stepper-sep"></div>
           <button class="stepper-btn" data-id="gain" data-dir="1">+</button>
@@ -436,7 +437,7 @@
       </div>
 
       <div class="setting-row">
-        <label>Y-SCALE (stretch low volumes)</label>
+        <label>Y-SCALE (exaggerate peaks)</label>
         <div class="stepper" id="s-yscale">
           <button class="stepper-btn" data-id="yscale" data-dir="-1">−</button>
           <div class="stepper-sep"></div>
@@ -568,7 +569,8 @@
         <option value="blocks-mirror" selected>BLK MIR</option>
         <option value="blocks">BLOCKS</option>
         <option value="radial">RADIAL</option>
-        <option value="single">SINGLE</option>
+        <option value="single-h">SNGL H</option>
+        <option value="single-v">SNGL V</option>
       </select>
     </div>
 
@@ -592,7 +594,7 @@
 
     <div class="control-group">
       <span class="control-label">GAIN</span>
-      <input type="range" class="slider" style="width:80px" id="gain-quick" min="0.5" max="8" step="0.1" value="5" oninput="stepperSet('gain',parseFloat(this.value));">
+      <input type="range" class="slider" style="width:80px" id="gain-quick" min="0.5" max="10" step="0.1" value="5" oninput="stepperSet('gain',parseFloat(this.value));">
       <span class="slider-val" id="gain-quick-val">5×</span>
     </div>
 
@@ -755,14 +757,11 @@ function draw() {
       const freqBoostDb = Math.max(-22, Math.min(22, 3.5 * Math.log2(Math.max(20, centerFreq) / 1000)));
       let db = mx + gainDb + freqBoostDb;
       db = db + 90;
-      // Noise floor: strongest at low freqs (where hum/rumble lives), tapers toward highs
-      const noiseFreqFactor = Math.max(0.05, 1 - (i / N) * 0.95);
-      const noiseDb = state.noiseFloor * 0.45 * noiseFreqFactor;
-      db = Math.max(0, db - noiseDb);
-      let norm = db / 90;
+      let norm = Math.max(0, db / 90);
+      norm = Math.max(0, norm - state.noiseFloor / 100);
       const ys = Math.max(1, state.yScale);
-      norm = Math.pow(Math.max(0,Math.min(1,norm)), ys);
-      raw[i] = Math.min(1, norm);
+      norm = Math.pow(Math.min(1, norm), ys);
+      raw[i] = norm;
     }
   }
 
@@ -785,8 +784,9 @@ function draw() {
   switch(state.vizMode) {
     case 'radial':  drawRadial(W,H,N);       break;
     case 'blocks':  drawBlocks(W,H,N,false); break;
-    case 'single':  drawSingle(W,H);         break;
-    default:        drawBlocks(W,H,N,true);  break;
+    case 'single-h': drawSingle(W,H);         break;
+    case 'single-v': drawSingleV(W,H);        break;
+    default:         drawBlocks(W,H,N,true);  break;
   }
 }
 
@@ -961,7 +961,7 @@ function drawBlocks(W,H,N,mirror) {
   if (mirror) { mainCtx.fillStyle='rgba(255,255,255,0.08)'; mainCtx.fillRect(0,H/2-1,W,2); }
 }
 
-// ── SINGLE BAR (VU meter — single row of bricks) ──
+// ── SINGLE-H (VU meter — single row of bricks) ──
 function drawSingle(W, H) {
   const N = state.bars.length;
   if (!N) return;
@@ -993,6 +993,41 @@ function drawSingle(W, H) {
     const px = Math.round(state.singlePeak * cols) * (blockW + gap);
     mainCtx.fillStyle = '#ffffff'; mainCtx.shadowColor = '#ffffff'; mainCtx.shadowBlur = 10;
     mainCtx.fillRect(px, startY, 2, blockH);
+    mainCtx.shadowBlur = 0;
+  }
+}
+
+function drawSingleV(W, H) {
+  const N = state.bars.length;
+  if (!N) return;
+
+  const level = Math.min(1, state.bars.reduce((s,v) => s+v, 0) / N * 2.2);
+
+  if (level >= state.singlePeak) { state.singlePeak = level; state.singlePeakTimer = 70; }
+  else { state.singlePeakTimer--; if (state.singlePeakTimer <= 0) state.singlePeak = Math.max(0, state.singlePeak - 0.012); }
+
+  const rows   = state.barCount || 25;
+  const gap    = 3;
+  const blockH = (H - (rows - 1) * gap) / rows;
+  const filled = Math.round(level * rows);
+
+  for (let row = 0; row < filled; row++) {
+    const t     = rows > 1 ? row / (rows - 1) : 1;
+    const isDom = row === filled - 1;
+    const color = isDom ? '#ffffff' : getBarColor(t, row, rows);
+    const y     = H - (row + 1) * (blockH + gap) + gap;
+    mainCtx.fillStyle   = color;
+    mainCtx.shadowColor = color;
+    mainCtx.shadowBlur  = isDom ? 22 : (t > 0.7 ? 10 : 3);
+    mainCtx.fillRect(0, Math.round(y), W, Math.ceil(blockH));
+  }
+  mainCtx.shadowBlur = 0;
+
+  if (state.peakHold && state.singlePeak > 0.02) {
+    const peakRow = Math.round(state.singlePeak * rows);
+    const py = H - peakRow * (blockH + gap);
+    mainCtx.fillStyle = '#ffffff'; mainCtx.shadowColor = '#ffffff'; mainCtx.shadowBlur = 10;
+    mainCtx.fillRect(0, Math.round(py), W, 2);
     mainCtx.shadowBlur = 0;
   }
 }
@@ -1141,7 +1176,7 @@ function startSpotifyPolling() {
 // ── STEPPERS ──
 // Config per stepper id: { min, max, step, accelStep, get, set }
 const STEPPERS = {
-  gain:      { min:0.5,  max:8,     step:0.1,  accel:0.5,  decimals:1, get:()=>state.gain,       set:v=>{state.gain=v; const gq=document.getElementById('gain-quick'); if(gq)gq.value=v; const gqv=document.getElementById('gain-quick-val'); if(gqv)gqv.textContent=v.toFixed(1)+'×';} },
+  gain:      { min:0.5,  max:10,    step:0.1,  accel:0.5,  decimals:1, get:()=>state.gain,       set:v=>{state.gain=v; const gq=document.getElementById('gain-quick'); if(gq)gq.value=v; const gqv=document.getElementById('gain-quick-val'); if(gqv)gqv.textContent=v.toFixed(1)+'×';} },
   yscale:    { min:1,    max:5,     step:0.1,  accel:0.5,  decimals:1, get:()=>state.yScale,     set:v=>{state.yScale=v;} },
   noise:     { min:0,    max:100,   step:1,    accel:5,    decimals:0, get:()=>state.noiseFloor, set:v=>{state.noiseFloor=v;} },
   smoothing: { min:0,    max:95,    step:1,    accel:5,    decimals:0, get:()=>state.smoothing*100, set:v=>{state.smoothing=v/100;} },
@@ -1394,28 +1429,32 @@ function computeNoiseFloor(samples) {
   for (const s of samples) for (let i = 0; i < N; i++) peakPerBar[i] = Math.max(peakPerBar[i], s[i]);
   const sorted = [...peakPerBar].sort((a,b) => a-b);
   const noiseDb = sorted[Math.floor(sorted.length * 0.9)];
-  return Math.min(85, Math.max(15, Math.round((noiseDb * 1.5) / 0.45)));
+  // Convert raw dB (0–90 scale) to normalised display units, add 40% margin
+  const gainDb = (state.gain - 1) * 8;
+  const noiseNorm = Math.min(1, Math.max(0, (noiseDb + gainDb) / 90));
+  return Math.min(80, Math.max(5, Math.round(noiseNorm * 1.4 * 100)));
 }
 
 function computeMusicSettings(samples, noiseFloor) {
   if (!samples.length) return { gain: state.gain, yScale: state.yScale };
-  const N = samples[0].length, noiseOffsetDb = noiseFloor * 0.45;
+  const N = samples[0].length;
+  const noiseGate = noiseFloor / 100;
   const samplePeaks = samples.map(s => {
     let mx = 0;
     for (let i = 0; i < N; i++) {
-      const nf = noiseOffsetDb * Math.max(0.05, 1 - (i/N)*0.95);
-      mx = Math.max(mx, Math.max(0, s[i] - nf));
+      mx = Math.max(mx, Math.max(0, s[i] / 90 - noiseGate));
     }
     return mx;
   });
   const sortedPeaks = [...samplePeaks].sort((a,b) => a-b);
-  const musicPeakDb = sortedPeaks[Math.floor(sortedPeaks.length * 0.85)] || 1;
-  const gainBoostDb = 63 - musicPeakDb;
-  const gain = clamp(parseFloat((1 + gainBoostDb / 8).toFixed(1)), 0.5, 6);
+  // musicPeakNorm is already in 0–1 normalised units (after noise gate, before gain)
+  const musicPeakNorm = sortedPeaks[Math.floor(sortedPeaks.length * 0.85)] || 0.01;
+  // Target peak at 0.85 of display (≈ gain multiplier)
+  const gainMult = clamp(0.85 / musicPeakNorm, 0.5, 10);
+  const gain = clamp(parseFloat((1 + (gainMult - 1) / 1.25).toFixed(1)), 0.5, 6);
   const allNorms = [];
   for (const s of samples) for (let i = 0; i < N; i++) {
-    const nf = noiseOffsetDb * Math.max(0.05, 1 - (i/N)*0.95);
-    const norm = Math.max(0, s[i] + gainBoostDb - nf) / 90;
+    const norm = Math.min(1, Math.max(0, s[i] / 90 - noiseGate) * gainMult);
     if (norm > 0.04) allNorms.push(norm);
   }
   allNorms.sort((a,b) => a-b);
@@ -1494,7 +1533,7 @@ function initGestures() {
       }
       if (gest.locked) {
         if (gest.mode === 'gain') {
-          const v = clamp(parseFloat((gest.startVals.gain - dy/120).toFixed(1)), 0.5, 8);
+          const v = clamp(parseFloat((gest.startVals.gain - dy/120).toFixed(1)), 0.5, 10);
           state.gain = v;
           const gainEl = document.getElementById('gain'); if (gainEl) gainEl.value = v;
           const gq = document.getElementById('gain-quick'); if (gq) gq.value = v;
@@ -1569,6 +1608,7 @@ function saveSettings() {
 function loadSettings() {
   try {
     const saved = JSON.parse(localStorage.getItem('vusic_settings') || '{}');
+    if (saved.vizMode === 'single') saved.vizMode = 'single-h';
     SETTINGS_KEYS.forEach(k => { if (saved[k] !== undefined) state[k] = saved[k]; });
   } catch(e) {}
 }
