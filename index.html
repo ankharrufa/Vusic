@@ -192,7 +192,7 @@
 
   #fs-art { width:64px; height:64px; border-radius:8px; object-fit:cover; flex-shrink:0; background:#1a1a1a; display:none; box-shadow:0 4px 20px rgba(0,0,0,0.6); cursor:pointer; pointer-events:auto; }
   #fs-art.visible { display:block; }
-  #fs-info { min-width:0; flex:1; }
+  #fs-info { min-width:0; }
   #fs-track { font-family:'Bebas Neue',sans-serif; font-size:clamp(22px,4vw,36px); letter-spacing:3px; color:#fff; text-shadow:0 2px 12px rgba(0,0,0,0.8); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #fs-artist { font-size:clamp(12px,1.8vw,16px); color:rgba(255,255,255,0.7); letter-spacing:1px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #fs-album { font-size:clamp(10px,1.4vw,13px); color:var(--accent); letter-spacing:1px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:0.9; }
@@ -518,18 +518,6 @@
 
       <!-- STYLE -->
       <div class="setting-section">STYLE</div>
-
-      <div class="setting-row">
-        <label>BAR ROUNDNESS</label>
-        <div class="stepper" id="s-round">
-          <button class="stepper-btn" data-id="round" data-dir="-1">−</button>
-          <div class="stepper-sep"></div>
-          <input class="stepper-input" id="round" type="number" value="0" min="0" max="20" step="1" inputmode="none" readonly>
-          <div class="stepper-unit">px</div>
-          <div class="stepper-sep"></div>
-          <button class="stepper-btn" data-id="round" data-dir="1">+</button>
-        </div>
-      </div>
 
       <!-- AUTO CALIBRATE -->
       <div class="setting-section">AUTO CALIBRATE</div>
@@ -1104,7 +1092,6 @@ const STEPPERS = {
   freqmin:   { min:0,    max:200,   step:5,    accel:20,   decimals:0, get:()=>state.freqMin,    set:v=>{state.freqMin=v;} },
   freqmax:   { min:5000, max:35000, step:500,  accel:2000, decimals:0, get:()=>state.freqMax,    set:v=>{state.freqMax=v;} },
   bars:      { min:8,    max:128,   step:1,    accel:4,    decimals:0, get:()=>state.barCount,   set:v=>{state.barCount=v;} },
-  round:     { min:0,    max:20,    step:1,    accel:4,    decimals:0, get:()=>state.roundness,  set:v=>{state.roundness=v;} },
 };
 
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
@@ -1515,7 +1502,7 @@ function initGestures() {
 }
 
 // ── SETTINGS PERSISTENCE ──
-const SETTINGS_KEYS = ['vizMode','colorTheme','peakHold','bgBlur','gain','yScale','noiseFloor','smoothing','freqMin','freqMax','freqScale','barCount','roundness','fsPosition','nightMode','nightModePrev','spotifySize'];
+const SETTINGS_KEYS = ['vizMode','colorTheme','peakHold','bgBlur','gain','yScale','noiseFloor','smoothing','freqMin','freqMax','freqScale','barCount','fsPosition','nightMode','nightModePrev','spotifySize'];
 
 function saveSettings() {
   const out = {};
@@ -1579,11 +1566,11 @@ function syncSettingsUI() {
 
 // ── FULLSCREEN OVERLAY POSITION ──
 const FS_POSITIONS = {
-  'bottom-left':  { top:'auto', bottom:'0',   left:'0',   right:'0',    transform:'', bg:'linear-gradient(transparent,rgba(0,0,0,0.88))', justify:'flex-start', align:'flex-end',   center:false },
-  'bottom-right': { top:'auto', bottom:'0',   left:'0',   right:'0',    transform:'', bg:'linear-gradient(transparent,rgba(0,0,0,0.88))', justify:'flex-end',   align:'flex-end',   center:false },
-  'top-left':     { top:'0',    bottom:'auto',left:'0',   right:'0',    transform:'', bg:'linear-gradient(rgba(0,0,0,0.88),transparent)', justify:'flex-start', align:'flex-start', center:false },
-  'top-right':    { top:'0',    bottom:'auto',left:'0',   right:'0',    transform:'', bg:'linear-gradient(rgba(0,0,0,0.88),transparent)', justify:'flex-end',   align:'flex-start', center:false },
-  'center':       { top:'50%',  bottom:'auto',left:'50%', right:'auto', transform:'translate(-50%,-50%)', bg:'rgba(0,0,0,0.75)', justify:'center', align:'center', center:true },
+  'bottom-left':  { top:'auto', bottom:'0',   left:'0',    right:'0',    transform:'', bg:'linear-gradient(transparent,rgba(0,0,0,0.88))', justify:'flex-start', align:'flex-end',   textAlign:'left',   center:false },
+  'bottom-right': { top:'auto', bottom:'0',   left:'auto', right:'0',    transform:'', bg:'linear-gradient(transparent,rgba(0,0,0,0.88))', justify:'flex-end',   align:'flex-end',   textAlign:'right',  center:false },
+  'top-left':     { top:'0',    bottom:'auto',left:'0',    right:'0',    transform:'', bg:'linear-gradient(rgba(0,0,0,0.88),transparent)', justify:'flex-start', align:'flex-start', textAlign:'left',   center:false },
+  'top-right':    { top:'0',    bottom:'auto',left:'auto', right:'0',    transform:'', bg:'linear-gradient(rgba(0,0,0,0.88),transparent)', justify:'flex-end',   align:'flex-start', textAlign:'right',  center:false },
+  'center':       { top:'50%',  bottom:'auto',left:'50%',  right:'auto', transform:'translate(-50%,-50%)', bg:'none', justify:'center', align:'center', textAlign:'center', center:true },
 };
 
 function updateFsPosition() {
@@ -1595,12 +1582,13 @@ function updateFsPosition() {
   ov.style.background = p.bg;
   ov.style.justifyContent = p.justify;
   ov.style.alignItems = p.align;
+  ov.style.textAlign = p.textAlign;
   if (p.center) {
-    ov.style.borderRadius = '16px'; ov.style.padding = '20px 28px';
-    ov.style.flexDirection = 'column'; ov.style.textAlign = 'center'; ov.style.width = 'auto';
+    ov.style.borderRadius = ''; ov.style.padding = '20px 28px';
+    ov.style.flexDirection = 'column'; ov.style.width = 'auto';
   } else {
     ov.style.borderRadius = ''; ov.style.padding = '20px 24px 28px';
-    ov.style.flexDirection = ''; ov.style.textAlign = ''; ov.style.width = '';
+    ov.style.flexDirection = ''; ov.style.width = '';
   }
   const sel = document.getElementById('fs-position');
   if (sel) sel.value = state.fsPosition;
