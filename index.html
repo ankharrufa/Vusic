@@ -928,6 +928,7 @@ function drawBlocks(W,H,N,mirror) {
   }
 
   // Hz labels above each band's dominant bar — flash on change, then fade
+  if (!state.nightMode) {
   mainCtx.font='bold 10px "DM Mono",monospace';
   mainCtx.textAlign='center';
   for (let b=0;b<3;b++) {
@@ -946,6 +947,7 @@ function drawBlocks(W,H,N,mirror) {
     mainCtx.fillText(label, bx, labelY);
   }
   mainCtx.shadowBlur=0; mainCtx.textAlign='left';
+  } // end !nightMode labels
 
   // Center line for mirror
   if (mirror) { mainCtx.fillStyle='rgba(255,255,255,0.08)'; mainCtx.fillRect(0,H/2-1,W,2); }
@@ -1027,7 +1029,7 @@ async function fetchCurrentTrack() {
 function updateTrackUI(track) {
   const ne=document.getElementById('track-name'), ae=document.getElementById('track-artist'), ale=document.getElementById('track-album');
   const artEl=document.getElementById('album-art'), phEl=document.getElementById('album-art-placeholder');
-  if(!track){ne.textContent='NOTHING PLAYING';ae.textContent='Spotify connected';ale.textContent='';artEl.classList.remove('visible');phEl.style.display='flex';return;}
+  if(!track){ne.textContent='NOTHING PLAYING';ae.textContent='Spotify connected';ale.textContent='';artEl.classList.remove('visible');phEl.style.display='flex';resetAlbumBtn();return;}
   const prev=state.currentTrack; state.currentTrack=track;
   ne.textContent=track.name.toUpperCase(); ae.textContent=track.artist; ale.textContent=track.album;
   // Sync fullscreen overlay
@@ -1074,7 +1076,15 @@ function extractAlbumColors(img) {
     THEMES.album.accent = brightHex;
     THEMES.album.bg     = bgHex;
     document.documentElement.style.setProperty('--accent', brightHex);
+    // Tint the album button with the extracted colour
+    const albumBtn = document.querySelector('.color-btn[title="Album Art"]');
+    if (albumBtn) albumBtn.style.background = `linear-gradient(135deg, ${darkHex}, ${brightHex})`;
   } catch(e) {}
+}
+
+function resetAlbumBtn() {
+  const albumBtn = document.querySelector('.color-btn[title="Album Art"]');
+  if (albumBtn) albumBtn.style.background = 'conic-gradient(#ff6b35,#bf00ff,#00d4ff,#00ff88,#ff6b35)';
 }
 
 function startSpotifyPolling() {
