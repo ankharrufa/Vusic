@@ -164,8 +164,7 @@
 
   /* Notice */
   #config-notice { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); text-align:center; z-index:5; pointer-events:none; }
-  #config-notice img { width:clamp(64px,12vw,110px); height:clamp(64px,12vw,110px); border-radius:22px; margin:0 auto 18px; display:block; opacity:0.9; box-shadow:0 0 40px rgba(255,107,53,0.3); }
-  #config-notice h2 { font-family:'Bebas Neue',sans-serif; font-size:clamp(28px,6vw,52px); letter-spacing:6px; color:var(--accent); text-shadow:0 0 40px var(--accent); margin-bottom:8px; }
+  #config-notice img { width:clamp(120px,22vw,220px); height:clamp(120px,22vw,220px); border-radius:clamp(24px,4vw,44px); margin:0 auto 20px; display:block; opacity:0.9; box-shadow:0 0 60px rgba(255,107,53,0.35); }
   #config-notice p { font-size:clamp(10px,1.5vw,13px); color:var(--muted); letter-spacing:2px; }
 
   /* Live dot */
@@ -261,6 +260,28 @@
   #gesture-hud.visible { opacity:1; }
   #gesture-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; }
   #gesture-val { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--accent); letter-spacing:1px; line-height:1; }
+
+  /* ── HELP OVERLAY ── */
+  #help-overlay { position:fixed; inset:0; z-index:200; background:rgba(8,8,8,0.98); display:none; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
+  #help-overlay.visible { display:block; }
+  .help-inner { max-width:560px; width:100%; margin:0 auto; padding:20px 20px 56px; }
+  .help-title { font-family:'Bebas Neue',sans-serif; font-size:clamp(26px,5vw,38px); letter-spacing:5px; color:var(--accent); text-shadow:0 0 28px var(--accent); margin-bottom:2px; }
+  .help-close { position:sticky; top:14px; float:right; background:rgba(255,255,255,0.06); border:1px solid var(--border); color:var(--text); font-size:15px; cursor:pointer; padding:8px 12px; border-radius:6px; line-height:1; margin-bottom:-40px; }
+  .help-close:active { background:rgba(255,255,255,0.12); }
+  .help-section { font-size:9px; letter-spacing:3px; color:var(--accent); text-transform:uppercase; margin:24px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--border); clear:both; }
+  .help-row { display:flex; gap:12px; align-items:flex-start; margin-bottom:10px; }
+  .help-tag { font-size:9px; letter-spacing:1px; color:var(--muted); background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:4px; padding:3px 7px; white-space:nowrap; flex-shrink:0; min-width:96px; text-align:center; margin-top:2px; }
+  .help-desc { font-size:11px; color:var(--text); line-height:1.75; letter-spacing:0.3px; }
+  .help-desc strong { color:var(--accent); font-weight:500; }
+  .help-gesture-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:4px; }
+  .help-gesture-card { background:#111; border:1px solid var(--border); border-radius:8px; padding:12px 10px; }
+  .help-gesture-card.full { grid-column:span 2; }
+  .help-gesture-icon { font-size:20px; margin-bottom:5px; }
+  .help-gesture-action { font-size:9px; letter-spacing:2px; color:var(--accent); text-transform:uppercase; margin-bottom:3px; }
+  .help-gesture-note { font-size:10px; color:var(--muted); line-height:1.5; }
+  .help-step { display:flex; gap:12px; align-items:flex-start; margin-bottom:10px; }
+  .help-step-num { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--accent); line-height:1; flex-shrink:0; width:18px; }
+  .help-note { font-size:10px; color:var(--muted); letter-spacing:0.5px; line-height:1.7; margin-bottom:10px; }
 </style>
 </head>
 <body>
@@ -284,6 +305,7 @@
       <button class="btn btn-spotify" id="spotify-btn" onclick="spotifyLogin()">●<span class="btn-label"> SPOTIFY</span></button>
       <button class="btn" onclick="toggleFullscreen()" id="fs-btn">⛶<span class="btn-label"> FULL</span></button>
       <button class="btn" onclick="toggleSettings()">⚙<span class="btn-label"> SET</span></button>
+      <button class="btn" onclick="toggleHelp()" id="help-btn">?<span class="btn-label"> HELP</span></button>
     </div>
   </div>
 
@@ -293,7 +315,6 @@
     <canvas id="main-canvas"></canvas>
     <div id="config-notice">
       <img src="icon.png" alt="VUSIC">
-      <h2>VUSIC</h2>
       <p>TAP MIC TO START VISUALIZER</p>
     </div>
 
@@ -598,6 +619,155 @@
       <span class="slider-val" id="gain-quick-val">5×</span>
     </div>
 
+  </div>
+</div>
+
+<!-- HELP OVERLAY -->
+<div id="help-overlay">
+  <div class="help-inner">
+    <button class="help-close" onclick="toggleHelp()">✕</button>
+    <div class="help-title">HELP</div>
+    <div style="font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:6px;">VUSIC — MUSIC VISUALIZER GUIDE</div>
+
+    <div class="help-section">GETTING STARTED</div>
+    <div class="help-row">
+      <span class="help-tag">MIC</span>
+      <span class="help-desc">Tap <strong>MIC</strong> to activate your microphone and start the visualizer. The red dot in the header pulses while active. Tap again to stop.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">FULL</span>
+      <span class="help-desc">Tap <strong>FULL</strong> to hide the header and controls. Tap anywhere on the visualizer to briefly show them again.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">SET</span>
+      <span class="help-desc">Opens the full settings panel where all parameters can be adjusted.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">SPOTIFY</span>
+      <span class="help-desc">Connect your Spotify account to show the current track, artist, and album art. See the <strong>Spotify Setup</strong> section below.</span>
+    </div>
+
+    <div class="help-section">TOUCH GESTURES</div>
+    <div class="help-note">Drag directly on the visualizer to adjust parameters in real time — a HUD briefly shows the current value. Gestures are ignored when the settings panel is open.</div>
+    <div class="help-gesture-grid">
+      <div class="help-gesture-card">
+        <div class="help-gesture-icon">☝ ↕</div>
+        <div class="help-gesture-action">GAIN</div>
+        <div class="help-gesture-note">1 finger — drag <strong>up / down</strong> anywhere on screen</div>
+      </div>
+      <div class="help-gesture-card">
+        <div class="help-gesture-icon">☝ ↔</div>
+        <div class="help-gesture-action">MIN / MAX FREQ</div>
+        <div class="help-gesture-note">1 finger — drag <strong>left / right</strong>. Left half of screen = Min Freq; right half = Max Freq</div>
+      </div>
+      <div class="help-gesture-card">
+        <div class="help-gesture-icon">✌ ↕</div>
+        <div class="help-gesture-action">NOISE FLOOR</div>
+        <div class="help-gesture-note">2 fingers — slide both fingers <strong>up / down</strong> together</div>
+      </div>
+      <div class="help-gesture-card">
+        <div class="help-gesture-icon">✌ ↔</div>
+        <div class="help-gesture-action">BAR COUNT</div>
+        <div class="help-gesture-note">2 fingers — pinch / spread <strong>horizontally</strong> (wider = more bars)</div>
+      </div>
+      <div class="help-gesture-card full">
+        <div class="help-gesture-icon">✌ ⇕</div>
+        <div class="help-gesture-action">Y-SCALE</div>
+        <div class="help-gesture-note">2 fingers — pinch / spread <strong>vertically</strong> (taller spread = higher scale, taller peaks)</div>
+      </div>
+    </div>
+
+    <div class="help-section">VISUALIZATION</div>
+    <div class="help-row">
+      <span class="help-tag">MODE</span>
+      <span class="help-desc"><strong>Blocks Mirror</strong> — symmetric bars from centre. <strong>Blocks</strong> — bars rising from the bottom. <strong>Radial</strong> — circular sunburst pattern. <strong>Single H</strong> — one row of tall bricks across the screen. <strong>Single V</strong> — one column of bricks down the screen.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">COLOR THEME</span>
+      <span class="help-desc"><strong>Fire / Ice / Plasma / Acid / Mono</strong> — gradient colour schemes. <strong>Spectrum</strong> — rainbow colours per height. <strong>Multi</strong> — each bar gets its own hue. <strong>Album Art</strong> — palette extracted automatically from the Spotify track art.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">PEAK HOLD</span>
+      <span class="help-desc">Holds a tick mark at the highest recent value for each bar, making peaks easier to read at a glance.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">BG BLUR</span>
+      <span class="help-desc">When Spotify is connected, blurs the album art behind the visualizer as an ambient background wash.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">NIGHT MODE</span>
+      <span class="help-desc">Smooth flowing animation with no bright highlight caps on the bars — easier on the eyes in a dark room.</span>
+    </div>
+
+    <div class="help-section">AUDIO</div>
+    <div class="help-row">
+      <span class="help-tag">GAIN</span>
+      <span class="help-desc">Amplifies the raw microphone signal (0.5× – 10×). Raise it if the bars look flat; lower it if they constantly max out. Also adjustable via the slider in the bottom bar or by dragging up/down on screen.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">Y-SCALE</span>
+      <span class="help-desc">Applies a curve to bar heights — higher values make quiet bars short and loud bars very tall, increasing visual contrast between soft and loud moments.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">NOISE FLOOR</span>
+      <span class="help-desc">Cuts constant background hum (0–100%). Raise it until bars go silent when music stops. Use <strong>Auto Calibrate</strong> to set this automatically.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">SMOOTHING</span>
+      <span class="help-desc">Blends frames together over time. Higher = slow, flowing movement. Lower = snappy, immediate response. Tune to taste.</span>
+    </div>
+
+    <div class="help-section">FREQUENCY RANGE</div>
+    <div class="help-row">
+      <span class="help-tag">MIN FREQ</span>
+      <span class="help-desc">The lowest frequency displayed (0–200 Hz). Raise to ~80 Hz to cut low-end rumble or kick-drum dominance.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">MAX FREQ</span>
+      <span class="help-desc">The highest frequency displayed (5–35 kHz). Lower to 10–12 kHz to remove high-frequency hiss from the display.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">FREQ SCALE</span>
+      <span class="help-desc"><strong>Log</strong> and <strong>SQRT</strong> give more visual space to bass frequencies — most natural for music. <strong>Linear</strong> spreads all frequencies equally, emphasising highs.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">BARS</span>
+      <span class="help-desc">Number of frequency bands shown (8–128). More bars = finer frequency detail. Fewer bars = bolder, chunkier blocks. Adjust by pinching horizontally on screen.</span>
+    </div>
+
+    <div class="help-section">AUTO CALIBRATE</div>
+    <div class="help-note">Found in Settings — automatically sets Gain, Noise Floor and Y-Scale for your environment. Mic must be on first. The whole process takes about 12 seconds.</div>
+    <div class="help-row">
+      <span class="help-tag">PHASE 1 — NOISE</span>
+      <span class="help-desc">Stay silent for 5 seconds. Vusic measures the ambient hum of your room and sets the Noise Floor accordingly.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">PHASE 2 — GAIN</span>
+      <span class="help-desc">Play music at your normal listening volume for 5 seconds. Vusic sets Gain and Y-Scale so the bars fill the display well. Tap <strong>Apply</strong> when done.</span>
+    </div>
+
+    <div class="help-section">FULLSCREEN OVERLAY</div>
+    <div class="help-row">
+      <span class="help-tag">TRACK SIZE</span>
+      <span class="help-desc">Controls how large the Spotify track info appears in fullscreen mode: <strong>Small</strong>, <strong>Med</strong>, or <strong>Large</strong>. You can also cycle through sizes by tapping the album art thumbnail in fullscreen.</span>
+    </div>
+    <div class="help-row">
+      <span class="help-tag">POSITION</span>
+      <span class="help-desc">Sets which corner (or centre) the track name and album art appear in during fullscreen.</span>
+    </div>
+
+    <div class="help-section">SPOTIFY SETUP</div>
+    <div class="help-note">Connecting Spotify shows the current track, artist, and album art in real time. When the <strong>Album Art</strong> colour theme is selected, Vusic automatically changes the palette to match the cover art.</div>
+    <div class="help-step"><span class="help-step-num">1</span><span class="help-desc">Go to <strong>developer.spotify.com</strong> and sign in with your Spotify account.</span></div>
+    <div class="help-step"><span class="help-step-num">2</span><span class="help-desc">Click <strong>Create app</strong> — give it any name and description.</span></div>
+    <div class="help-step"><span class="help-step-num">3</span><span class="help-desc">Under <strong>Redirect URIs</strong> add exactly:<br><strong style="color:var(--accent);word-break:break-all;font-size:11px;">https://ankharrufa.github.io/Vusic/</strong></span></div>
+    <div class="help-step"><span class="help-step-num">4</span><span class="help-desc">Save the app, then copy the <strong>Client ID</strong> shown on the app dashboard.</span></div>
+    <div class="help-step"><span class="help-step-num">5</span><span class="help-desc">In Vusic, tap <strong>SET</strong> → scroll to the <strong>Spotify</strong> section → paste the Client ID into the field.</span></div>
+    <div class="help-step"><span class="help-step-num">6</span><span class="help-desc">Tap the green <strong>SPOTIFY</strong> button in the header. You will be redirected to Spotify to authorise, then returned to Vusic automatically.</span></div>
+
+    <div style="margin-top:36px;text-align:center;">
+      <button class="cal-btn primary" onclick="toggleHelp()" style="padding:12px 36px;font-size:11px;letter-spacing:2px;">CLOSE</button>
+    </div>
   </div>
 </div>
 
@@ -1080,32 +1250,115 @@ async function spotifyLogin() {
 
 async function handleSpotifyCallback() {
   const p=new URLSearchParams(window.location.search), code=p.get('code');
-  if(!code) return;
+  if(!code){
+    const err=p.get('error');
+    if(err) { console.error('[Vusic Spotify] Auth redirect error:',err); spotifySetStatus('error','AUTH: '+err.toUpperCase()); }
+    return;
+  }
   window.history.replaceState({},'',window.location.pathname);
   const cid=localStorage.getItem('spotify_client_id')||CONFIG.SPOTIFY_CLIENT_ID;
+  const verifier=localStorage.getItem('pkce_verifier');
+  console.log('[Vusic Spotify] Exchanging code — client_id:',cid,'redirect_uri:',CONFIG.REDIRECT_URI,'has_verifier:',!!verifier);
   try {
-    const r=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:cid,grant_type:'authorization_code',code,redirect_uri:CONFIG.REDIRECT_URI,code_verifier:localStorage.getItem('pkce_verifier')})});
+    const r=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:cid,grant_type:'authorization_code',code,redirect_uri:CONFIG.REDIRECT_URI,code_verifier:verifier})});
     const d=await r.json();
-    if(d.access_token){state.spotifyToken=d.access_token;localStorage.setItem('spotify_token',d.access_token);localStorage.setItem('spotify_refresh',d.refresh_token);localStorage.setItem('spotify_expires',Date.now()+d.expires_in*1000);startSpotifyPolling();}
-  } catch(e){console.error(e);}
+    console.log('[Vusic Spotify] Token exchange status:',r.status,'body:',JSON.stringify(d));
+    if(d.access_token){
+      state.spotifyToken=d.access_token;
+      localStorage.setItem('spotify_token',d.access_token);
+      localStorage.setItem('spotify_refresh',d.refresh_token||'');
+      localStorage.setItem('spotify_expires',Date.now()+d.expires_in*1000);
+      localStorage.removeItem('pkce_verifier');
+      console.log('[Vusic Spotify] Auth OK — token expires in',d.expires_in,'s');
+      startSpotifyPolling();
+    } else {
+      const msg=(d.error_description||d.error||'unknown error');
+      console.error('[Vusic Spotify] Token exchange failed:',msg);
+      spotifySetStatus('error',msg.toUpperCase().slice(0,28));
+      alert('Spotify auth failed: '+msg+'\n\nCheck Settings → Spotify — Client ID and Redirect URI must match your Spotify Developer app exactly.');
+    }
+  } catch(e){ console.error('[Vusic Spotify] Token exchange network error:',e); spotifySetStatus('error','NETWORK ERR'); }
 }
 
 async function refreshSpotifyToken() {
   const cid=localStorage.getItem('spotify_client_id')||CONFIG.SPOTIFY_CLIENT_ID, rt=localStorage.getItem('spotify_refresh');
-  if(!rt) return;
-  try{const r=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:rt,client_id:cid})});const d=await r.json();if(d.access_token){state.spotifyToken=d.access_token;localStorage.setItem('spotify_token',d.access_token);localStorage.setItem('spotify_expires',Date.now()+d.expires_in*1000);}}catch(e){}
+  if(!rt){ console.warn('[Vusic Spotify] No refresh token — re-auth needed'); spotifyDisconnect(); return; }
+  console.log('[Vusic Spotify] Refreshing token...');
+  try{
+    const r=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:rt,client_id:cid})});
+    const d=await r.json();
+    console.log('[Vusic Spotify] Refresh status:',r.status,'error:',d.error||'none');
+    if(d.access_token){
+      state.spotifyToken=d.access_token;
+      localStorage.setItem('spotify_token',d.access_token);
+      localStorage.setItem('spotify_expires',Date.now()+d.expires_in*1000);
+      if(d.refresh_token) localStorage.setItem('spotify_refresh',d.refresh_token);
+    } else {
+      console.error('[Vusic Spotify] Refresh failed:',d.error,d.error_description);
+      spotifyDisconnect();
+    }
+  }catch(e){ console.error('[Vusic Spotify] Refresh network error:',e); }
 }
 
 async function fetchCurrentTrack() {
   if(!state.spotifyToken) return;
   if(Date.now()>parseInt(localStorage.getItem('spotify_expires')||'0')-60000) await refreshSpotifyToken();
+  if(!state.spotifyToken) return;
   try {
     const r=await fetch('https://api.spotify.com/v1/me/player/currently-playing',{headers:{Authorization:`Bearer ${state.spotifyToken}`}});
+    if(r.status===401){ console.warn('[Vusic Spotify] 401 — token invalid, attempting refresh'); await refreshSpotifyToken(); return; }
+    if(r.status===403){ console.error('[Vusic Spotify] 403 — check Spotify app scopes'); spotifySetStatus('error','SCOPE ERROR'); return; }
+    if(r.status===429){ console.warn('[Vusic Spotify] 429 — rate limited'); return; }
     if(r.status===204||r.status===404){updateTrackUI(null);return;}
+    if(!r.ok){ console.error('[Vusic Spotify] Unexpected status:',r.status); return; }
     const d=await r.json();
     if(d&&d.item) updateTrackUI({name:d.item.name,artist:d.item.artists.map(a=>a.name).join(', '),album:d.item.album.name,art:d.item.album.images[0]?.url||'',isPlaying:d.is_playing});
-  } catch(e){}
+    else updateTrackUI(null);
+  } catch(e){ console.error('[Vusic Spotify] Fetch error:',e); }
 }
+
+function spotifyDisconnect() {
+  if(state.spotifyInterval){ clearInterval(state.spotifyInterval); state.spotifyInterval=null; }
+  state.spotifyToken=null;
+  localStorage.removeItem('spotify_token');
+  localStorage.removeItem('spotify_refresh');
+  localStorage.removeItem('spotify_expires');
+  document.getElementById('track-name').textContent='NOT CONNECTED';
+  document.getElementById('track-artist').textContent='Connect Spotify to see what\'s playing';
+  document.getElementById('track-album').textContent='';
+  document.getElementById('album-art').classList.remove('visible');
+  document.getElementById('album-art-placeholder').style.display='flex';
+  document.getElementById('spotify-btn').innerHTML='●<span class="btn-label"> SPOTIFY</span>';
+  document.getElementById('spotify-btn').className='btn btn-spotify';
+  console.log('[Vusic Spotify] Disconnected — tap SPOTIFY to re-auth');
+}
+
+function spotifySetStatus(type, msg) {
+  const btn=document.getElementById('spotify-btn');
+  if(type==='error'){
+    btn.innerHTML='⚠<span class="btn-label"> '+msg+'</span>';
+    btn.style.background='#ff4444'; btn.style.color='#fff'; btn.style.borderColor='#ff4444';
+    document.getElementById('track-name').textContent='SPOTIFY ERROR';
+    document.getElementById('track-artist').textContent=msg+' — tap SPOTIFY to retry';
+  }
+}
+
+// ── SPOTIFY DIAGNOSTICS (call spotifyDiag() from browser console) ──
+window.spotifyDiag = function() {
+  const now=Date.now();
+  const exp=parseInt(localStorage.getItem('spotify_expires')||'0');
+  console.group('[Vusic Spotify Diagnostics]');
+  console.log('Client ID:', localStorage.getItem('spotify_client_id')||'(not set)');
+  console.log('Redirect URI:', CONFIG.REDIRECT_URI);
+  console.log('Has access token:', !!localStorage.getItem('spotify_token'));
+  console.log('Has refresh token:', !!localStorage.getItem('spotify_refresh'));
+  console.log('Token expires:', exp ? new Date(exp).toISOString() : '(none)');
+  console.log('Token expired:', exp ? (now>exp ? 'YES ('+Math.round((now-exp)/60000)+'min ago)' : 'no, '+Math.round((exp-now)/60000)+'min remaining') : 'n/a');
+  console.log('State token active:', !!state.spotifyToken);
+  console.log('Polling interval active:', !!state.spotifyInterval);
+  console.groupEnd();
+  return 'Diagnostics logged above ↑';
+};
 
 function updateTrackUI(track) {
   const ne=document.getElementById('track-name'), ae=document.getElementById('track-artist'), ale=document.getElementById('track-album');
@@ -1169,7 +1422,10 @@ function resetAlbumBtn() {
 }
 
 function startSpotifyPolling() {
-  document.getElementById('spotify-btn').innerHTML='●<span class="btn-label"> SPOTIFY</span>';
+  const btn=document.getElementById('spotify-btn');
+  btn.innerHTML='●<span class="btn-label"> SPOTIFY</span>';
+  btn.style.background=''; btn.style.color=''; btn.style.borderColor='';
+  btn.className='btn btn-spotify';
   fetchCurrentTrack();
   if(state.spotifyInterval) clearInterval(state.spotifyInterval);
   state.spotifyInterval=setInterval(fetchCurrentTrack,5000);
@@ -1331,6 +1587,10 @@ function toggleSettings() {
   state.settingsOpen=!state.settingsOpen;
   document.getElementById('settings-drawer').classList.toggle('open',state.settingsOpen);
   document.getElementById('viz-container').classList.toggle('settings-open',state.settingsOpen);
+}
+
+function toggleHelp() {
+  document.getElementById('help-overlay').classList.toggle('visible');
 }
 
 function saveClientId() {
