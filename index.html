@@ -552,6 +552,14 @@
       </div>
 
       <div class="setting-row">
+        <label>DEVICE SPEED</label>
+        <div class="toggle-row">
+          <div class="toggle-opt active" id="dev-fast" onclick="setToggle('slowDevice',false)">FAST</div>
+          <div class="toggle-opt" id="dev-slow" onclick="setToggle('slowDevice',true)">SLOW</div>
+        </div>
+      </div>
+
+      <div class="setting-row">
         <label>NIGHT MODE (smooth, no highlights)</label>
         <div class="toggle-row">
           <div class="toggle-opt" id="night-on" onclick="setNightMode(true)">ON</div>
@@ -1100,7 +1108,7 @@ const state = {
   vizMode: 'blocks-mirror', colorTheme: 'fire',
   freqMin: 20, freqMax: 15000, freqScale: 'sqrt', barCount: 25,
   smoothing: 0.10, gain: 5, yScale: 1.5, noiseFloor: 0,
-  roundness: 0, peakHold: true, bgBlur: true,
+  roundness: 0, peakHold: true, bgBlur: true, slowDevice: false,
   nightMode: false, nightModePrev: null,
   spotifySize: 'small',
   fsPosition: 'bottom-left',
@@ -1536,32 +1544,50 @@ function drawDancer(W, H, N) {
   const accent = THEMES[state.colorTheme].accent;
 
   mainCtx.save();
-  mainCtx.lineCap='round'; mainCtx.lineJoin='round';
   mainCtx.strokeStyle=accent; mainCtx.fillStyle=accent;
-  mainCtx.shadowColor=accent; mainCtx.shadowBlur=4+dancer.energy*10;
 
-  const line=(a,b,w=lw)=>{mainCtx.beginPath();mainCtx.moveTo(a.x,a.y);mainCtx.lineTo(b.x,b.y);mainCtx.lineWidth=w;mainCtx.stroke();};
+  if (state.slowDevice) {
+    // Single batched path — no shadow, butt caps, one stroke call
+    mainCtx.lineCap='butt'; mainCtx.lineJoin='miter';
+    mainCtx.lineWidth=lw; mainCtx.shadowBlur=0;
+    mainCtx.beginPath();
+    mainCtx.moveTo(hipL.x,hipL.y); mainCtx.lineTo(kneL.x,kneL.y); mainCtx.lineTo(footL.x,footL.y);
+    mainCtx.moveTo(hipR.x,hipR.y); mainCtx.lineTo(kneR.x,kneR.y); mainCtx.lineTo(footR.x,footR.y);
+    mainCtx.moveTo(hipL.x,hipL.y); mainCtx.lineTo(cx,hipY); mainCtx.lineTo(hipR.x,hipR.y);
+    mainCtx.moveTo(cx,hipY); mainCtx.lineTo(cx,shlY);
+    mainCtx.moveTo(shlL.x,shlL.y); mainCtx.lineTo(shlR.x,shlR.y);
+    mainCtx.moveTo(shlL.x,shlL.y); mainCtx.lineTo(elbL.x,elbL.y); mainCtx.lineTo(handL.x,handL.y);
+    mainCtx.moveTo(shlR.x,shlR.y); mainCtx.lineTo(elbR.x,elbR.y); mainCtx.lineTo(handR.x,handR.y);
+    mainCtx.moveTo(cx,shlY); mainCtx.lineTo(cx,headCY+headR);
+    mainCtx.stroke();
+    mainCtx.beginPath(); mainCtx.arc(cx,headCY,headR,0,Math.PI*2); mainCtx.stroke();
+  } else {
+    mainCtx.lineCap='round'; mainCtx.lineJoin='round';
+    mainCtx.shadowColor=accent; mainCtx.shadowBlur=4+dancer.energy*10;
 
-  // Legs
-  line(hipL,kneL); line(kneL,footL);
-  line(hipR,kneR); line(kneR,footR);
+    const line=(a,b,w=lw)=>{mainCtx.beginPath();mainCtx.moveTo(a.x,a.y);mainCtx.lineTo(b.x,b.y);mainCtx.lineWidth=w;mainCtx.stroke();};
 
-  // Torso
-  const spine={x:cx,y:hipY};
-  line(hipL,spine,lw*1.1); line(hipR,spine,lw*1.1);
-  line(spine,{x:cx,y:shlY},lw*1.2);
-  line(shlL,shlR,lw*1.1);
+    // Legs
+    line(hipL,kneL); line(kneL,footL);
+    line(hipR,kneR); line(kneR,footR);
 
-  // Arms
-  line(shlL,elbL); line(elbL,handL,lw*0.85);
-  line(shlR,elbR); line(elbR,handR,lw*0.85);
+    // Torso
+    const spine={x:cx,y:hipY};
+    line(hipL,spine,lw*1.1); line(hipR,spine,lw*1.1);
+    line(spine,{x:cx,y:shlY},lw*1.2);
+    line(shlL,shlR,lw*1.1);
 
-  // Neck
-  line({x:cx,y:shlY},{x:cx,y:headCY+headR},lw*0.8);
+    // Arms
+    line(shlL,elbL); line(elbL,handL,lw*0.85);
+    line(shlR,elbR); line(elbR,handR,lw*0.85);
 
-  // Head
-  mainCtx.beginPath(); mainCtx.arc(cx,headCY,headR,0,Math.PI*2);
-  mainCtx.lineWidth=lw*0.9; mainCtx.stroke();
+    // Neck
+    line({x:cx,y:shlY},{x:cx,y:headCY+headR},lw*0.8);
+
+    // Head
+    mainCtx.beginPath(); mainCtx.arc(cx,headCY,headR,0,Math.PI*2);
+    mainCtx.lineWidth=lw*0.9; mainCtx.stroke();
+  }
 
   mainCtx.restore();
 }
@@ -2710,7 +2736,7 @@ function initGestures() {
 }
 
 // ── SETTINGS PERSISTENCE ──
-const SETTINGS_KEYS = ['vizMode','colorTheme','peakHold','bgBlur','gain','yScale','noiseFloor','smoothing','freqMin','freqMax','freqScale','barCount','fsPosition','nightMode','nightModePrev','spotifySize'];
+const SETTINGS_KEYS = ['vizMode','colorTheme','peakHold','bgBlur','slowDevice','gain','yScale','noiseFloor','smoothing','freqMin','freqMax','freqScale','barCount','fsPosition','nightMode','nightModePrev','spotifySize'];
 
 function saveSettings() {
   const out = {};
@@ -2756,6 +2782,9 @@ function syncSettingsUI() {
   // Night mode
   document.getElementById('night-on').classList.toggle('active', !!state.nightMode);
   document.getElementById('night-off').classList.toggle('active', !state.nightMode);
+  // Device speed
+  document.getElementById('dev-fast').classList.toggle('active', !state.slowDevice);
+  document.getElementById('dev-slow').classList.toggle('active', !!state.slowDevice);
   // Spotify size
   const sz = state.spotifySize || 'small';
   ['small','medium','large'].forEach(s => document.getElementById('spsize-'+s).classList.toggle('active', s===sz));
