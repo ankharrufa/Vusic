@@ -1277,176 +1277,193 @@ function draw() {
 }
 
 // ── DANCER ──
-// Beat-driven: targets are set on each beat, limbs lerp toward them.
-// No continuous oscillators on arms/legs = no jitter.
+// Phase-locked beat clock: onset detection updates the period, but the clock
+// fires on its own schedule — so movement stays locked to tempo even when
+// individual beats are missed. Fires on EVERY half-beat (2× per beat).
 const DANCER_ROUTINES = [
   'groove','syncGroove','armsUp','handsUp','windmill',
-  'wave','leftOnly','rightOnly','splits','twist'
+  'wave','leftOnly','rightOnly','splits','twist','random'
 ];
 const dancer = {
   bass:0, mid:0, energy:0,
-  bassAvg:0, framesSinceBeat:0, beatFrames:30,
-  // Per-limb: current drawn value + beat-set target
+  subBass:0, subBassAvg:0.1,
+  // Phase-locked clock: beatPhase 0→1 loops at beatPeriod frames/cycle
+  beatPhase:0, beatPeriod:30, framesSinceOnset:999,
+  // Limb current values + targets (targets set every half-beat)
   lArm:0, rArm:0, lElb:0.08, rElb:0.08,
   lLeg:0, rLeg:0,
   lArmTgt:0, rArmTgt:0, lElbTgt:0.08, rElbTgt:0.08,
   lLegTgt:0, rLegTgt:0,
-  // Elbow phases — only used for windmill orbit
   lElbPh:0, rElbPh:Math.PI,
-  // Jump physics (px units, negative = up)
   jumpVel:0, jumpPos:0,
-  // Routine state
-  rIdx:0, beatNum:0, routineBeats:0, routineChange:5, routineFrames:0,
-  waveArm:0,
+  rIdx:0, routineHB:0, routineChange:12, routineFrames:0,
 };
 
 function setDancerTargets() {
-  const rt  = DANCER_ROUTINES[dancer.rIdx];
-  const bn  = dancer.beatNum % 4;
-  const ba  = Math.min(1, dancer.bass*3.5);
-  const mi  = Math.min(1, dancer.mid*3);
-  const e   = Math.min(1, dancer.energy*2.5);
+  const rt = DANCER_ROUTINES[dancer.rIdx];
+  const hb = dancer.routineHB;          // half-beats since routine start
+  const bn = Math.floor(hb/2) % 4;      // main beat 0-3
+  const oh = hb % 2 === 1;              // true = "and" half-beat
+  const ba = Math.min(1, dancer.bass*3.5);
+  const mi = Math.min(1, dancer.mid*3);
+  const e  = Math.min(1, dancer.energy*2.5);
 
   switch(rt) {
     case 'groove':
-      // Arms alternate L/R on each beat, legs opposite
-      dancer.lArmTgt = bn%2===0 ? 0.55+mi*0.45 : 0.1;
-      dancer.rArmTgt = bn%2===0 ? 0.1 : 0.55+mi*0.45;
-      dancer.lElbTgt = 0.1+e*0.5;
-      dancer.rElbTgt = 0.1+e*0.5;
-      dancer.lLegTgt = bn%2===0 ? 0.05 : 0.28+ba*0.22;
-      dancer.rLegTgt = bn%2===0 ? 0.28+ba*0.22 : 0.05;
+      // Arms swap L↔R on main beats; elbows flex on "and" beats
+      dancer.lArmTgt = oh ? 0.30+mi*0.3 : (bn%2===0 ? 0.58+mi*0.5 : 0.08);
+      dancer.rArmTgt = oh ? 0.30+mi*0.3 : (bn%2===0 ? 0.08 : 0.58+mi*0.5);
+      dancer.lElbTgt = dancer.rElbTgt = 0.08 + e*(oh ? 0.55 : 0.15);
+      dancer.lLegTgt = bn%2===0 ? 0.04 : 0.28+ba*0.24;
+      dancer.rLegTgt = bn%2===0 ? 0.28+ba*0.24 : 0.04;
       break;
     case 'syncGroove':
-      // Both arms mirror each other
-      dancer.lArmTgt = dancer.rArmTgt = bn%2===0 ? 0.5+mi*0.4 : 0.12;
-      dancer.lElbTgt = dancer.rElbTgt = 0.1+e*0.55;
-      dancer.lLegTgt = dancer.rLegTgt = bn%2===0 ? 0.05 : 0.2+ba*0.2;
+      dancer.lArmTgt = dancer.rArmTgt = oh ? 0.28+mi*0.25 : (bn%2===0 ? 0.55+mi*0.4 : 0.1);
+      dancer.lElbTgt = dancer.rElbTgt = 0.08 + e*(oh ? 0.55 : 0.15);
+      dancer.lLegTgt = dancer.rLegTgt = bn%2===0 ? 0.04 : 0.20+ba*0.18;
       break;
     case 'armsUp':
-      // Arms raised, waving in upward range, mirrored
-      dancer.lArmTgt = dancer.rArmTgt = Math.PI*(bn%2===0 ? 0.60 : 0.85);
-      dancer.lElbTgt = dancer.rElbTgt = 0.05+e*0.18;
-      dancer.lLegTgt = dancer.rLegTgt = ba*0.12;
+      dancer.lArmTgt = dancer.rArmTgt = oh ? Math.PI*0.68 : Math.PI*(bn%2===0 ? 0.62 : 0.90);
+      dancer.lElbTgt = dancer.rElbTgt = 0.04+e*0.18;
+      dancer.lLegTgt = dancer.rLegTgt = oh ? 0 : ba*0.12;
       break;
     case 'handsUp':
-      // Both arms fully extended overhead, slight sway
-      dancer.lArmTgt = Math.PI*(0.90 + (bn===1||bn===3 ? 0.05 : 0));
-      dancer.rArmTgt = Math.PI*(0.90 + (bn===0||bn===2 ? 0.05 : 0));
-      dancer.lElbTgt = dancer.rElbTgt = 0.03;
-      dancer.lLegTgt = bn%2===0 ? 0.05 : 0.12+ba*0.1;
-      dancer.rLegTgt = bn%2===0 ? 0.12+ba*0.1 : 0.05;
+      dancer.lArmTgt = oh ? Math.PI*0.82 : Math.PI*(0.92+(bn===0||bn===2?0.05:0));
+      dancer.rArmTgt = oh ? Math.PI*0.82 : Math.PI*(0.92+(bn===1||bn===3?0.05:0));
+      dancer.lElbTgt = dancer.rElbTgt = oh ? 0.08 : 0.03;
+      dancer.lLegTgt = bn%2===0 ? 0.04 : 0.14+ba*0.1;
+      dancer.rLegTgt = bn%2===0 ? 0.14+ba*0.1 : 0.04;
       break;
     case 'windmill':
-      // Upper arms out horizontal; forearms orbit elbow (driven by lElbPh in draw)
-      dancer.lArmTgt = dancer.rArmTgt = Math.PI*0.42;
-      dancer.lLegTgt = dancer.rLegTgt = ba*0.1;
+      dancer.lArmTgt = dancer.rArmTgt = Math.PI*(oh ? 0.38 : 0.44);
+      dancer.lLegTgt = dancer.rLegTgt = oh ? 0 : ba*0.1;
       break;
-    case 'wave':
-      // One arm high, other low — swap every 2 beats
-      dancer.lArmTgt = dancer.waveArm===0 ? Math.PI*0.78 : 0.08;
-      dancer.rArmTgt = dancer.waveArm===1 ? Math.PI*0.78 : 0.08;
-      dancer.lElbTgt = dancer.waveArm===0 ? 0.1+e*0.25 : 0.05;
-      dancer.rElbTgt = dancer.waveArm===1 ? 0.1+e*0.25 : 0.05;
-      dancer.lLegTgt = dancer.waveArm===0 ? 0.05 : 0.22+ba*0.18;
-      dancer.rLegTgt = dancer.waveArm===1 ? 0.05 : 0.22+ba*0.18;
+    case 'wave': {
+      // One arm up, switches side every 8 half-beats (= 4 main beats)
+      const wa = Math.floor(hb/8) % 2;
+      dancer.lArmTgt = wa===0 ? Math.PI*0.80 : 0.06;
+      dancer.rArmTgt = wa===1 ? Math.PI*0.80 : 0.06;
+      dancer.lElbTgt = wa===0 ? 0.1+e*0.3 : 0.04;
+      dancer.rElbTgt = wa===1 ? 0.1+e*0.3 : 0.04;
+      dancer.lLegTgt = wa===0 ? 0.04 : 0.22+ba*0.18;
+      dancer.rLegTgt = wa===1 ? 0.04 : 0.22+ba*0.18;
       break;
+    }
     case 'leftOnly':
-      dancer.lArmTgt = bn%2===0 ? 0.6+mi*0.5 : 0.1+mi*0.3;
+      dancer.lArmTgt = oh ? 0.28+mi*0.28 : (bn%2===0 ? 0.62+mi*0.5 : 0.1);
       dancer.rArmTgt = 0.04; dancer.rElbTgt = 0.04;
-      dancer.lElbTgt = 0.12+e*0.5;
-      dancer.lLegTgt = bn%2===0 ? 0.25+ba*0.2 : 0.05;
+      dancer.lElbTgt = 0.08+(oh ? e*0.5 : 0);
+      dancer.lLegTgt = bn%2===0 ? 0.26+ba*0.2 : 0.04;
       dancer.rLegTgt = 0.04;
       break;
     case 'rightOnly':
-      dancer.rArmTgt = bn%2===0 ? 0.6+mi*0.5 : 0.1+mi*0.3;
+      dancer.rArmTgt = oh ? 0.28+mi*0.28 : (bn%2===0 ? 0.62+mi*0.5 : 0.1);
       dancer.lArmTgt = 0.04; dancer.lElbTgt = 0.04;
-      dancer.rElbTgt = 0.12+e*0.5;
-      dancer.rLegTgt = bn%2===0 ? 0.25+ba*0.2 : 0.05;
+      dancer.rElbTgt = 0.08+(oh ? e*0.5 : 0);
+      dancer.rLegTgt = bn%2===0 ? 0.26+ba*0.2 : 0.04;
       dancer.lLegTgt = 0.04;
       break;
     case 'splits':
-      // Legs spread wide — hipY auto-corrects so feet stay on floor (see draw)
-      dancer.lLegTgt = dancer.rLegTgt = Math.PI*(0.30+ba*0.12);
-      // Arms out for balance, alternating heights
-      dancer.lArmTgt = 0.38 + (bn%2===0 ? 0.2 : 0);
-      dancer.rArmTgt = 0.38 + (bn%2===0 ? 0 : 0.2);
+      dancer.lLegTgt = dancer.rLegTgt = Math.PI*(oh ? 0.26 : 0.32+ba*0.12);
+      dancer.lArmTgt = oh ? 0.40 : 0.32+(bn%2)*0.18;
+      dancer.rArmTgt = oh ? 0.40 : 0.32+((1-bn%2))*0.18;
       dancer.lElbTgt = dancer.rElbTgt = 0.08+e*0.15;
       break;
     case 'twist':
-      // Arms hang down toward thighs; knees open/close on alternate beats
-      dancer.lArmTgt = dancer.rArmTgt = 0.06;
-      dancer.lElbTgt = dancer.rElbTgt = 0.05;
-      dancer.lLegTgt = bn%2===0 ? 0.12 : 0.44+ba*0.14;
-      dancer.rLegTgt = bn%2===0 ? 0.44+ba*0.14 : 0.12;
+      dancer.lArmTgt = dancer.rArmTgt = oh ? 0.10 : 0.05;
+      dancer.lElbTgt = dancer.rElbTgt = oh ? 0.12 : 0.04;
+      dancer.lLegTgt = oh ? (bn%2===0 ? 0.42+ba*0.14 : 0.10) : 0.24;
+      dancer.rLegTgt = oh ? (bn%2===0 ? 0.10 : 0.42+ba*0.14) : 0.24;
+      break;
+    case 'random':
+      // Full-range chaos every half-beat — arms, elbows, legs all random
+      dancer.lArmTgt = Math.random() * Math.PI * 1.05;
+      dancer.rArmTgt = Math.random() * Math.PI * 1.05;
+      dancer.lElbTgt = Math.random() * 0.90;
+      dancer.rElbTgt = Math.random() * 0.90;
+      dancer.lLegTgt = Math.random() * Math.PI * 0.50;
+      dancer.rLegTgt = Math.random() * Math.PI * 0.50;
       break;
   }
 }
 
 function updateDancer(N) {
-  const bars = state.bars;
-  const bEnd = Math.floor(N*0.25), mEnd = Math.floor(N*0.65);
-  let bS=0, mS=0, hS=0;
+  const bars  = state.bars;
+  const sbEnd = Math.floor(N*0.08);   // ~60 Hz — sub-bass for kick detection
+  const bEnd  = Math.floor(N*0.25);
+  const mEnd  = Math.floor(N*0.65);
+  let sbS=0, bS=0, mS=0, hS=0;
   for(let i=0;i<N;i++){
-    if(i<bEnd) bS+=bars[i]; else if(i<mEnd) mS+=bars[i]; else hS+=bars[i];
+    if(i<sbEnd) sbS+=bars[i];
+    if(i<bEnd)  bS+=bars[i]; else if(i<mEnd) mS+=bars[i]; else hS+=bars[i];
   }
+  const subBass = sbS/Math.max(1,sbEnd);
   const rawBass = bS/Math.max(1,bEnd);
-  const rawAll  = (bS+mS+hS)/N;
   const rawMid  = mS/Math.max(1,mEnd-bEnd);
+  const rawAll  = (bS+mS+hS)/N;
 
-  dancer.energy = dancer.energy*0.80 + rawAll*0.20;
-  dancer.bass   = dancer.bass*0.80   + rawBass*0.20;
-  dancer.mid    = dancer.mid*0.80    + rawMid*0.20;
+  dancer.energy  = dancer.energy*0.85  + rawAll*0.15;
+  dancer.bass    = dancer.bass*0.85    + rawBass*0.15;
+  dancer.mid     = dancer.mid*0.85     + rawMid*0.15;
+  dancer.subBass = dancer.subBass*0.80 + subBass*0.20;
+  dancer.subBassAvg = dancer.subBassAvg*0.94 + subBass*0.06;
 
-  dancer.framesSinceBeat++;
+  dancer.framesSinceOnset++;
   dancer.routineFrames++;
-  dancer.bassAvg = dancer.bassAvg*0.96 + rawBass*0.04;
 
-  // Jump physics: apply gravity each frame
-  if(dancer.jumpVel !== 0 || dancer.jumpPos !== 0) {
-    dancer.jumpVel += 1.4;
-    dancer.jumpPos += dancer.jumpVel;
-    if(dancer.jumpPos >= 0){ dancer.jumpPos=0; dancer.jumpVel=0; }
+  // Jump physics
+  if(dancer.jumpVel!==0||dancer.jumpPos!==0){
+    dancer.jumpVel+=1.4; dancer.jumpPos+=dancer.jumpVel;
+    if(dancer.jumpPos>=0){dancer.jumpPos=0;dancer.jumpVel=0;}
   }
 
-  // Windmill elbow orbit — advance continuously so circles are smooth
-  const base = (2*Math.PI)/Math.max(10,dancer.beatFrames);
-  dancer.lElbPh += base*1.7;
-  dancer.rElbPh += base*1.1;
+  // Windmill elbow orbit (continuous, no kicks)
+  const elbBase=(2*Math.PI)/Math.max(10,dancer.beatPeriod);
+  dancer.lElbPh+=elbBase*1.7; dancer.rElbPh+=elbBase*1.1;
 
-  const nextRoutine = () => {
-    dancer.routineBeats=0; dancer.routineFrames=0;
-    dancer.routineChange=3+Math.floor(Math.random()*5);
-    const cur=dancer.rIdx;
-    let nx; do{nx=Math.floor(Math.random()*DANCER_ROUTINES.length);}while(nx===cur);
-    dancer.rIdx=nx; dancer.beatNum=0; dancer.waveArm=0;
-    setDancerTargets(); // set targets for new routine immediately
-  };
+  // ── Onset detection via sub-bass spike (kick drum) ──
+  const onset = subBass > dancer.subBassAvg*1.30 && subBass > 0.07
+                && dancer.framesSinceOnset > 7;
+  if(onset){
+    // Update period estimate from inter-onset interval
+    if(dancer.framesSinceOnset < 180)
+      dancer.beatPeriod = dancer.beatPeriod*0.75 + dancer.framesSinceOnset*0.25;
+    dancer.beatPeriod = Math.max(10, Math.min(120, dancer.beatPeriod));
+    // Phase-lock: pull beatPhase toward nearest 0 boundary
+    const phErr = dancer.beatPhase > 0.5 ? dancer.beatPhase-1 : dancer.beatPhase;
+    dancer.beatPhase -= phErr*0.30;
+    dancer.framesSinceOnset=0;
+    if(subBass > dancer.subBassAvg*2.2 && dancer.jumpPos===0) dancer.jumpVel=-11;
+  }
 
-  if(dancer.routineFrames > 300) nextRoutine();
+  // ── Phase-locked clock: always advances at current tempo ──
+  const prevPhase = dancer.beatPhase;
+  dancer.beatPhase += 1/dancer.beatPeriod;
 
-  // Only use beats above minimum energy so silence doesn't confuse tempo
-  if(rawBass > 0.12 && rawBass > dancer.bassAvg*1.6 && dancer.framesSinceBeat > 8) {
-    if(dancer.framesSinceBeat < 120)
-      dancer.beatFrames = dancer.beatFrames*0.6 + dancer.framesSinceBeat*0.4;
-    dancer.framesSinceBeat = 0;
-    dancer.beatNum++;
-    dancer.routineBeats++;
-    if(dancer.beatNum%2===0) dancer.waveArm ^= 1;
-    // Hard jump on very strong beats (not too often — jumpPos===0 gate)
-    if(rawBass > dancer.bassAvg*2.4 && dancer.jumpPos===0) dancer.jumpVel=-11;
+  // Fire on each half-beat crossing (phase 0 and 0.5)
+  if(Math.floor(prevPhase*2) < Math.floor(dancer.beatPhase*2)){
+    dancer.routineHB++;
     setDancerTargets();
-    if(dancer.routineBeats >= dancer.routineChange) nextRoutine();
+    // Routine change check
+    if(dancer.routineHB >= dancer.routineChange || dancer.routineFrames > 300){
+      dancer.routineHB=0; dancer.routineFrames=0;
+      dancer.routineChange=10+Math.floor(Math.random()*10);
+      const cur=dancer.rIdx;
+      let nx; do{nx=Math.floor(Math.random()*DANCER_ROUTINES.length);}while(nx===cur);
+      dancer.rIdx=nx;
+      setDancerTargets();
+    }
   }
+  if(dancer.beatPhase>=1) dancer.beatPhase-=1;
 
-  // Dynamic lerp: snaps fast right after a beat, settles to smooth hold
-  const snap = 0.08 + 0.38*Math.exp(-dancer.framesSinceBeat*0.08);
-  dancer.lArm += (dancer.lArmTgt - dancer.lArm)*snap;
-  dancer.rArm += (dancer.rArmTgt - dancer.rArm)*snap;
-  dancer.lElb += (dancer.lElbTgt - dancer.lElb)*snap;
-  dancer.rElb += (dancer.rElbTgt - dancer.rElb)*snap;
-  dancer.lLeg += (dancer.lLegTgt - dancer.lLeg)*snap;
-  dancer.rLeg += (dancer.rLegTgt - dancer.rLeg)*snap;
+  // Lerp toward targets — faster for random
+  const sp = DANCER_ROUTINES[dancer.rIdx]==='random' ? 0.38 : 0.22;
+  dancer.lArm+=(dancer.lArmTgt-dancer.lArm)*sp;
+  dancer.rArm+=(dancer.rArmTgt-dancer.rArm)*sp;
+  dancer.lElb+=(dancer.lElbTgt-dancer.lElb)*sp;
+  dancer.rElb+=(dancer.rElbTgt-dancer.rElb)*sp;
+  dancer.lLeg+=(dancer.lLegTgt-dancer.lLeg)*sp;
+  dancer.rLeg+=(dancer.rLegTgt-dancer.rLeg)*sp;
 }
 
 function drawDancer(W, H, N) {
