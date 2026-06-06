@@ -937,6 +937,13 @@
       <button class="btn" style="width:100%;padding:14px;font-size:11px;letter-spacing:2px;" onclick="remoteSendCmd('toggleFullscreen')">⛶ TOGGLE FULLSCREEN ON TABLET</button>
     </div>
     <div class="setting-row">
+      <label>MICROPHONE</label>
+      <div class="toggle-row">
+        <div class="toggle-opt" id="r-mic-on" onclick="remoteSendCmd('toggleMic')">ON</div>
+        <div class="toggle-opt" id="r-mic-off" onclick="remoteSendCmd('toggleMic')">OFF</div>
+      </div>
+    </div>
+    <div class="setting-row">
       <button class="btn" style="width:100%;padding:14px;font-size:11px;letter-spacing:2px;" onclick="remoteSendCmd('reload')">↺ RELOAD TABLET PAGE</button>
     </div>
     <div class="setting-section">VISUALIZATION</div>
@@ -995,6 +1002,28 @@
         <div class="stepper-unit">%</div>
         <div class="stepper-sep"></div>
         <button class="stepper-btn" onclick="remoteStep('smoothing',1,0,95)">+</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <label>MIN FREQ</label>
+      <div class="stepper">
+        <button class="stepper-btn" onclick="remoteStep('freqMin',-5,0,200)">−</button>
+        <div class="stepper-sep"></div>
+        <input class="stepper-input" id="r-freqmin" readonly inputmode="none">
+        <div class="stepper-unit">Hz</div>
+        <div class="stepper-sep"></div>
+        <button class="stepper-btn" onclick="remoteStep('freqMin',5,0,200)">+</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <label>MAX FREQ</label>
+      <div class="stepper">
+        <button class="stepper-btn" onclick="remoteStep('freqMax',-500,5000,35000)">−</button>
+        <div class="stepper-sep"></div>
+        <input class="stepper-input" id="r-freqmax" readonly inputmode="none">
+        <div class="stepper-unit">Hz</div>
+        <div class="stepper-sep"></div>
+        <button class="stepper-btn" onclick="remoteStep('freqMax',500,5000,35000)">+</button>
       </div>
     </div>
     <div class="setting-row">
@@ -1491,6 +1520,7 @@ async function startMic() {
     document.getElementById('live-dot').classList.add('active');
     document.getElementById('config-notice').style.display='none';
     updateNowPlayingScreen();
+    fbPushStatus();
     if(!state.animFrame) draw();
   } catch(e) { alert('Microphone access denied.'); }
 }
@@ -1506,6 +1536,7 @@ function stopMic() {
   mainCtx.clearRect(0,0,mainCanvas.width,mainCanvas.height);
   bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
   updateNowPlayingScreen();
+  fbPushStatus();
 }
 
 // ── SPOTIFY ──
@@ -1836,6 +1867,11 @@ function fbPushSettings() {
   fbDb.ref('vusic/settings').update(d).catch(()=>{});
 }
 
+function fbPushStatus() {
+  if (!fbDb||!fbReady||isRemoteMode) return;
+  fbDb.ref('vusic/status').update({micActive: state.micActive}).catch(()=>{});
+}
+
 function fbPushTrack(track) {
   if (!fbDb||!fbReady||isRemoteMode) return;
   fbDb.ref('vusic/track').set(track ? {
@@ -1862,7 +1898,11 @@ async function startFbSync(cfg) {
     const d=snap.val(); if(!d||d.t<=lastCmdT) return;
     lastCmdT=d.t;
     if(d.action==='toggleFullscreen') toggleFullscreen();
-    if(d.action==='reload') location.reload();
+    if(d.action==='toggleMic') toggleMic();
+    if(d.action==='reload') {
+      localStorage.setItem('vusic_restore_mic', state.micActive ? '1' : '0');
+      location.reload();
+    }
   });
 }
 
@@ -1933,6 +1973,11 @@ async function initRemoteMode() {
     syncRemoteUI();
   });
   fbDb.ref('vusic/track').on('value', snap=>updateRemoteTrack(snap.val()));
+  fbDb.ref('vusic/status').on('value', snap=>{
+    const d=snap.val();
+    document.getElementById('r-mic-on')?.classList.toggle('active',!!d?.micActive);
+    document.getElementById('r-mic-off')?.classList.toggle('active',!d?.micActive);
+  });
 }
 
 function syncRemoteUI() {
@@ -1943,6 +1988,8 @@ function syncRemoteUI() {
   const en=get('r-noise'); if(en) en.value=Math.round(state.noiseFloor);
   const es=get('r-smoothing'); if(es) es.value=Math.round(state.smoothing*100);
   const eb=get('r-bars'); if(eb) eb.value=state.barCount;
+  const efmin=get('r-freqmin'); if(efmin) efmin.value=state.freqMin;
+  const efmax=get('r-freqmax'); if(efmax) efmax.value=state.freqMax;
   get('r-peak-on')?.classList.toggle('active',!!state.peakHold);
   get('r-peak-off')?.classList.toggle('active',!state.peakHold);
   get('r-night-on')?.classList.toggle('active',!!state.nightMode);
@@ -2474,6 +2521,8 @@ function init() {
   }
   const fbCfg=getFbConfig();
   if(fbCfg) startFbSync(fbCfg);
+  const restoreMic=localStorage.getItem('vusic_restore_mic');
+  if(restoreMic==='1'){ localStorage.removeItem('vusic_restore_mic'); setTimeout(()=>startMic(),600); }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
