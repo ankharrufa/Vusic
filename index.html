@@ -1278,130 +1278,141 @@ function draw() {
 
 // ── DANCER ──
 const dancer = {
-  phase:0, energy:0, bass:0, mid:0,
-  lArm:0, rArm:0, lElbow:0.15, rElbow:0.15,
-  lLeg:0, rLeg:0, bob:0,
+  // Band energies
+  bass:0, mid:0, energy:0,
+  // Beat detection
+  bassAvg:0, framesSinceBeat:0, beatFrames:30,
+  // Per-limb independent phases + current angles
+  // Each limb has its own phase, speed multiplier, and starting offset
+  lArmPh:0,    lArm:0,   lArmSpd:0.9,
+  rArmPh:1.9,  rArm:0,   rArmSpd:1.3,
+  lElbPh:0.7,  lElb:0.2, lElbSpd:1.6,
+  rElbPh:2.5,  rElb:0.2, rElbSpd:0.7,
+  lLegPh:3.2,  lLeg:0,   lLegSpd:1.1,
+  rLegPh:1.4,  rLeg:0,   rLegSpd:1.8,
+  bobPh:0.3,   bob:0,    bobSpd:2.1,
 };
 
 function updateDancer(N) {
   const bars = state.bars;
   const bEnd = Math.floor(N * 0.25);
   const mEnd = Math.floor(N * 0.65);
-  let bS=0, mS=0, total=0;
-  for (let i=0; i<N; i++) {
-    total += bars[i];
-    if (i < bEnd) bS += bars[i];
-    else if (i < mEnd) mS += bars[i];
+  let bS=0, mS=0, hS=0;
+  for (let i=0;i<N;i++) {
+    if (i<bEnd) bS+=bars[i]; else if (i<mEnd) mS+=bars[i]; else hS+=bars[i];
   }
-  const sm = 0.82;
-  dancer.energy = dancer.energy*sm + (total/N)*(1-sm);
-  dancer.bass   = dancer.bass*sm   + (bS/Math.max(1,bEnd))*(1-sm);
-  dancer.mid    = dancer.mid*sm    + (mS/Math.max(1,mEnd-bEnd))*(1-sm);
+  const rawBass = bS/Math.max(1,bEnd);
+  const rawMid  = mS/Math.max(1,mEnd-bEnd);
+  const rawAll  = (bS+mS+hS)/N;
 
-  dancer.phase += 0.018 + dancer.bass * 0.07;
-  const p  = dancer.phase;
-  const e  = Math.min(1, dancer.energy * 2.5);
-  const ba = Math.min(1, dancer.bass * 3.5);
-  const mi = Math.min(1, dancer.mid  * 3.5);
-  const sp = 0.12;
+  const sm=0.80;
+  dancer.energy = dancer.energy*sm + rawAll*(1-sm);
+  dancer.bass   = dancer.bass*sm   + rawBass*(1-sm);
+  dancer.mid    = dancer.mid*sm    + rawMid*(1-sm);
 
-  // Arms raise with mid energy, swing left/right alternately
-  const raise = mi * 0.9;
-  const swing = Math.sin(p) * e * 0.32;
-  dancer.lArm   += (raise + swing - dancer.lArm) * sp;
-  dancer.rArm   += (raise - swing - dancer.rArm) * sp;
-  dancer.lElbow += (0.18 + mi*0.55 + Math.abs(Math.sin(p))*e*0.25 - dancer.lElbow) * sp;
-  dancer.rElbow += (0.18 + mi*0.55 + Math.abs(Math.sin(p+Math.PI))*e*0.25 - dancer.rElbow) * sp;
+  // Beat detection: spike in raw bass relative to rolling average
+  dancer.framesSinceBeat++;
+  dancer.bassAvg = dancer.bassAvg*0.96 + rawBass*0.04;
+  if (rawBass > dancer.bassAvg*1.6 && dancer.framesSinceBeat > 8) {
+    if (dancer.framesSinceBeat < 120)
+      dancer.beatFrames = dancer.beatFrames*0.55 + dancer.framesSinceBeat*0.45;
+    dancer.framesSinceBeat = 0;
+    // Each limb gets a different random phase kick on every beat — creates chaotic feel
+    dancer.lArmPh += Math.PI*(0.5+Math.random()*1.4);
+    dancer.rArmPh += Math.PI*(1.1+Math.random()*0.8);
+    dancer.lElbPh += Math.PI*(0.3+Math.random()*1.8);
+    dancer.rElbPh += Math.PI*(1.4+Math.random()*1.0);
+    dancer.lLegPh += Math.PI*(1.2+Math.random()*0.7);
+    dancer.rLegPh += Math.PI*(0.6+Math.random()*1.6);
+    dancer.bobPh  += Math.PI*(1.7+Math.random()*0.6);
+  }
 
-  // Legs: alternating knee raises driven by bass (natural cross-body gait)
-  dancer.lLeg += (Math.max(0, Math.sin(p + Math.PI)) * ba * 0.55 - dancer.lLeg) * sp;
-  dancer.rLeg += (Math.max(0, Math.sin(p))           * ba * 0.55 - dancer.rLeg) * sp;
+  // Each limb advances at its own speed relative to detected tempo
+  const base = (2*Math.PI)/dancer.beatFrames;
+  dancer.lArmPh += base*dancer.lArmSpd;
+  dancer.rArmPh += base*dancer.rArmSpd;
+  dancer.lElbPh += base*dancer.lElbSpd;
+  dancer.rElbPh += base*dancer.rElbSpd;
+  dancer.lLegPh += base*dancer.lLegSpd;
+  dancer.rLegPh += base*dancer.rLegSpd;
+  dancer.bobPh  += base*dancer.bobSpd;
 
-  // Body bob: twice per beat
-  dancer.bob += (Math.sin(p * 2) * ba * 0.05 - dancer.bob) * sp;
+  const sp=0.12;
+  const mi=Math.min(1, dancer.mid*3);
+  const ba=Math.min(1, dancer.bass*3.5);
+  const e =Math.min(1, dancer.energy*2.5);
+
+  dancer.lArm += (Math.max(0,Math.sin(dancer.lArmPh))*(0.35+mi*0.75) - dancer.lArm)*sp;
+  dancer.rArm += (Math.max(0,Math.sin(dancer.rArmPh))*(0.35+mi*0.75) - dancer.rArm)*sp;
+  dancer.lElb += (0.1+Math.abs(Math.sin(dancer.lElbPh))*(0.25+e*0.65) - dancer.lElb)*sp;
+  dancer.rElb += (0.1+Math.abs(Math.sin(dancer.rElbPh))*(0.25+e*0.65) - dancer.rElb)*sp;
+  dancer.lLeg += (Math.max(0,Math.sin(dancer.lLegPh))*(0.15+ba*0.55) - dancer.lLeg)*sp;
+  dancer.rLeg += (Math.max(0,Math.sin(dancer.rLegPh))*(0.15+ba*0.55) - dancer.rLeg)*sp;
+  dancer.bob  += (Math.sin(dancer.bobPh)*(0.02+ba*0.04) - dancer.bob)*sp;
 }
 
 function drawDancer(W, H, N) {
   updateDancer(N);
 
-  const sc   = Math.min(W, H) * 0.38;
-  const cx   = W / 2;
-  const headR  = sc * 0.11;
-  const torsoH = sc * 0.30;
-  const swid   = sc * 0.22;   // shoulder half-width
-  const hwid   = sc * 0.14;   // hip half-width
-  const uArm   = sc * 0.24;
-  const fArm   = sc * 0.21;
-  const thigh  = sc * 0.30;
-  const shin   = sc * 0.27;
-  const lw     = Math.max(2, sc * 0.033);
-  const jr     = lw * 1.2;
+  const sc   = Math.min(W,H)*0.38;
+  const cx   = W/2;
+  const headR  = sc*0.11;
+  const torsoH = sc*0.30;
+  const swid   = sc*0.22;
+  const hwid   = sc*0.055;  // short hip bar
+  const uArm   = sc*0.24;
+  const fArm   = sc*0.21;
+  const thigh  = sc*0.30;
+  const shin   = sc*0.27;
+  const lw     = Math.max(2, sc*0.033);
 
-  const groundY = H * 0.82;
-  const bob     = dancer.bob * sc;
-  const hipY    = groundY - shin - thigh + bob;
-  const shlY    = hipY - torsoH;
-  const headCY  = shlY - sc * 0.04 - headR;
+  const bob    = dancer.bob*sc;
+  const hipY   = H*0.82 - shin - thigh + bob;
+  const shlY   = hipY - torsoH;
+  const headCY = shlY - sc*0.04 - headR;
 
-  // Joint positions
-  const hipL = {x: cx - hwid, y: hipY};
-  const hipR = {x: cx + hwid, y: hipY};
-  const shlL = {x: cx - swid, y: shlY};
-  const shlR = {x: cx + swid, y: shlY};
+  const hipL={x:cx-hwid,y:hipY}, hipR={x:cx+hwid,y:hipY};
+  const shlL={x:cx-swid,y:shlY}, shlR={x:cx+swid,y:shlY};
 
-  // Arms (angle from hanging-down, outward direction)
-  const elbL = {x: shlL.x - Math.sin(dancer.lArm)*uArm, y: shlL.y + Math.cos(dancer.lArm)*uArm};
-  const elbR = {x: shlR.x + Math.sin(dancer.rArm)*uArm, y: shlR.y + Math.cos(dancer.rArm)*uArm};
-  const handL = {x: elbL.x - Math.sin(dancer.lArm - dancer.lElbow)*fArm, y: elbL.y + Math.cos(dancer.lArm - dancer.lElbow)*fArm};
-  const handR = {x: elbR.x + Math.sin(dancer.rArm - dancer.rElbow)*fArm, y: elbR.y + Math.cos(dancer.rArm - dancer.rElbow)*fArm};
+  const elbL={x:shlL.x-Math.sin(dancer.lArm)*uArm, y:shlL.y+Math.cos(dancer.lArm)*uArm};
+  const elbR={x:shlR.x+Math.sin(dancer.rArm)*uArm, y:shlR.y+Math.cos(dancer.rArm)*uArm};
+  const handL={x:elbL.x-Math.sin(dancer.lArm-dancer.lElb)*fArm, y:elbL.y+Math.cos(dancer.lArm-dancer.lElb)*fArm};
+  const handR={x:elbR.x+Math.sin(dancer.rArm-dancer.rElb)*fArm, y:elbR.y+Math.cos(dancer.rArm-dancer.rElb)*fArm};
 
-  // Legs (angle = knee raise outward, shin hangs from knee)
-  const kneL = {x: hipL.x - Math.sin(dancer.lLeg)*thigh, y: hipL.y + Math.cos(dancer.lLeg)*thigh};
-  const kneR = {x: hipR.x + Math.sin(dancer.rLeg)*thigh, y: hipR.y + Math.cos(dancer.rLeg)*thigh};
-  const footL = {x: kneL.x, y: kneL.y + shin};
-  const footR = {x: kneR.x, y: kneR.y + shin};
+  const kneL={x:hipL.x-Math.sin(dancer.lLeg)*thigh, y:hipL.y+Math.cos(dancer.lLeg)*thigh};
+  const kneR={x:hipR.x+Math.sin(dancer.rLeg)*thigh, y:hipR.y+Math.cos(dancer.rLeg)*thigh};
+  const footL={x:kneL.x, y:kneL.y+shin};
+  const footR={x:kneR.x, y:kneR.y+shin};
 
-  const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff6b35';
+  const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#ff6b35';
 
   mainCtx.save();
-  mainCtx.lineCap = 'round';
-  mainCtx.lineJoin = 'round';
-  mainCtx.strokeStyle = accent;
-  mainCtx.fillStyle = accent;
-  mainCtx.shadowColor = accent;
-  mainCtx.shadowBlur = 20 + dancer.energy * 25;
+  mainCtx.lineCap='round'; mainCtx.lineJoin='round';
+  mainCtx.strokeStyle=accent; mainCtx.fillStyle=accent;
+  mainCtx.shadowColor=accent; mainCtx.shadowBlur=18+dancer.energy*28;
 
-  const line = (a, b, w=lw) => {
-    mainCtx.beginPath(); mainCtx.moveTo(a.x,a.y); mainCtx.lineTo(b.x,b.y);
-    mainCtx.lineWidth=w; mainCtx.stroke();
-  };
-  const dot = (p, r=jr) => {
-    mainCtx.beginPath(); mainCtx.arc(p.x,p.y,r,0,Math.PI*2); mainCtx.fill();
-  };
+  const line=(a,b,w=lw)=>{mainCtx.beginPath();mainCtx.moveTo(a.x,a.y);mainCtx.lineTo(b.x,b.y);mainCtx.lineWidth=w;mainCtx.stroke();};
 
   // Legs
-  line(hipL, kneL); line(kneL, footL);
-  line(hipR, kneR); line(kneR, footR);
+  line(hipL,kneL); line(kneL,footL);
+  line(hipR,kneR); line(kneR,footR);
 
-  // Torso: V from both hips up to spine, then spine to shoulders
-  const spine = {x:cx, y:hipY};
-  line(hipL, spine, lw*1.1); line(hipR, spine, lw*1.1);
-  line(spine, {x:cx, y:shlY}, lw*1.2);
-  line(shlL, shlR, lw*1.1);
+  // Torso
+  const spine={x:cx,y:hipY};
+  line(hipL,spine,lw*1.1); line(hipR,spine,lw*1.1);
+  line(spine,{x:cx,y:shlY},lw*1.2);
+  line(shlL,shlR,lw*1.1);
 
   // Arms
-  line(shlL, elbL); line(elbL, handL, lw*0.85);
-  line(shlR, elbR); line(elbR, handR, lw*0.85);
+  line(shlL,elbL); line(elbL,handL,lw*0.85);
+  line(shlR,elbR); line(elbR,handR,lw*0.85);
 
   // Neck
-  line({x:cx, y:shlY}, {x:cx, y:headCY+headR}, lw*0.8);
+  line({x:cx,y:shlY},{x:cx,y:headCY+headR},lw*0.8);
 
-  // Joints
-  [hipL,hipR,shlL,shlR,kneL,kneR,elbL,elbR].forEach(p=>dot(p));
-
-  // Head (circle outline)
-  mainCtx.beginPath(); mainCtx.arc(cx, headCY, headR, 0, Math.PI*2);
-  mainCtx.lineWidth = lw*0.9; mainCtx.stroke();
+  // Head
+  mainCtx.beginPath(); mainCtx.arc(cx,headCY,headR,0,Math.PI*2);
+  mainCtx.lineWidth=lw*0.9; mainCtx.stroke();
 
   mainCtx.restore();
 }
