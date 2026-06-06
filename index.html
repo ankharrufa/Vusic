@@ -218,6 +218,62 @@
   }
   #app.fullscreen #fs-hint { opacity:1; }
 
+  /* ── NOW PLAYING SCREEN ── */
+  #now-playing-screen {
+    position:absolute; inset:0; z-index:15;
+    display:none; background:#000; overflow:hidden;
+  }
+  #now-playing-screen.visible { display:flex; }
+  #np-bg {
+    position:absolute; inset:-30px;
+    background-size:cover; background-position:center;
+    filter:blur(50px) brightness(0.2) saturate(1.8);
+    z-index:0;
+  }
+  #np-left {
+    width:50%; display:flex; align-items:center; justify-content:center;
+    padding:32px; position:relative; z-index:1; flex-shrink:0;
+  }
+  #np-art {
+    width:100%; aspect-ratio:1/1;
+    max-width:min(100%, 50vh);
+    object-fit:cover; border-radius:12px;
+    box-shadow:0 8px 60px rgba(0,0,0,0.8);
+    display:none;
+  }
+  #np-art.visible { display:block; }
+  #np-art-placeholder {
+    width:100%; aspect-ratio:1/1; max-width:min(100%,50vh);
+    border-radius:12px; background:#1a1a1a; border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    font-size:clamp(48px,8vw,96px); opacity:0.3;
+  }
+  #np-right {
+    width:50%; display:flex; flex-direction:column; justify-content:center;
+    padding:32px 40px 32px 24px; position:relative; z-index:1; min-width:0;
+  }
+  #np-track {
+    font-family:'Bebas Neue',sans-serif; font-size:clamp(36px,7vw,96px);
+    letter-spacing:3px; color:#fff; line-height:1.05;
+    text-shadow:0 2px 20px rgba(0,0,0,0.8); word-break:break-word;
+  }
+  #np-artist {
+    font-size:clamp(16px,3vw,40px); color:rgba(255,255,255,0.75);
+    letter-spacing:2px; margin-top:clamp(10px,2vh,24px);
+    word-break:break-word;
+  }
+  #np-album {
+    font-size:clamp(12px,2vw,26px); color:var(--accent);
+    letter-spacing:2px; margin-top:clamp(6px,1vh,14px);
+    opacity:0.9; word-break:break-word;
+  }
+  @media (orientation:portrait) {
+    #now-playing-screen { flex-direction:column; }
+    #np-left { width:100%; height:50%; padding:20px; }
+    #np-art, #np-art-placeholder { max-width:min(100%,44vw); }
+    #np-right { width:100%; height:50%; padding:16px 24px; justify-content:flex-start; }
+  }
+
   /* Small screen */
   @media (max-width:520px) {
     #header { padding:8px 10px; gap:8px; }
@@ -328,6 +384,20 @@
       </div>
     </div>
     <div id="fs-hint">TAP TO SHOW CONTROLS</div>
+
+    <!-- NOW PLAYING SCREEN -->
+    <div id="now-playing-screen">
+      <div id="np-bg"></div>
+      <div id="np-left">
+        <img id="np-art" src="" alt="">
+        <div id="np-art-placeholder">♪</div>
+      </div>
+      <div id="np-right">
+        <div id="np-track">—</div>
+        <div id="np-artist"></div>
+        <div id="np-album"></div>
+      </div>
+    </div>
 
     <!-- GESTURE HUD -->
     <div id="gesture-hud">
@@ -1220,6 +1290,7 @@ async function startMic() {
     document.getElementById('mic-btn').innerHTML='🔴<span class="btn-label"> MIC</span>';
     document.getElementById('live-dot').classList.add('active');
     document.getElementById('config-notice').style.display='none';
+    updateNowPlayingScreen();
     if(!state.animFrame) draw();
   } catch(e) { alert('Microphone access denied.'); }
 }
@@ -1234,6 +1305,7 @@ function stopMic() {
   document.getElementById('config-notice').style.display='block';
   mainCtx.clearRect(0,0,mainCanvas.width,mainCanvas.height);
   bgCtx.clearRect(0,0,bgCanvas.width,bgCanvas.height);
+  updateNowPlayingScreen();
 }
 
 // ── SPOTIFY ──
@@ -1378,6 +1450,7 @@ function updateTrackUI(track) {
     bgImage=new Image(); bgImage.crossOrigin='anonymous'; bgImage.src=track.art;
   }
   document.getElementById('spotify-btn').innerHTML=track.isPlaying?'▶<span class="btn-label"> SPOTIFY</span>':'⏸<span class="btn-label"> SPOTIFY</span>';
+  updateNowPlayingScreen();
 }
 
 function extractAlbumColors(img) {
@@ -1510,6 +1583,24 @@ function updateSettings() {
   saveSettings();
 }
 
+// ── NOW PLAYING SCREEN ──
+function updateNowPlayingScreen() {
+  const show = fsActive && !state.micActive && !!state.currentTrack;
+  document.getElementById('now-playing-screen').classList.toggle('visible', show);
+  if (!show) return;
+  const t = state.currentTrack;
+  document.getElementById('np-track').textContent = t.name.toUpperCase();
+  document.getElementById('np-artist').textContent = t.artist;
+  document.getElementById('np-album').textContent = t.album || '';
+  if (t.art) {
+    const img = document.getElementById('np-art');
+    const ph = document.getElementById('np-art-placeholder');
+    img.src = t.art;
+    img.onload = () => { img.classList.add('visible'); ph.style.display = 'none'; };
+    document.getElementById('np-bg').style.backgroundImage = `url('${t.art}')`;
+  }
+}
+
 // ── FULLSCREEN ──
 let fsActive = false;
 function toggleFullscreen() {
@@ -1517,6 +1608,7 @@ function toggleFullscreen() {
   document.getElementById('app').classList.toggle('fullscreen', fsActive);
   document.getElementById('fs-btn').innerHTML = fsActive ? '✕<span class="btn-label"> EXIT</span>' : '⛶<span class="btn-label"> FULL</span>';
   resizeCanvases();
+  updateNowPlayingScreen();
   // Try native fullscreen on supported devices
   if (fsActive) {
     document.documentElement.requestFullscreen?.().catch(()=>{});
