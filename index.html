@@ -226,9 +226,8 @@
   #fs-overlay.size-large #fs-artist { font-size:clamp(16px,2.8vw,26px); }
   #fs-overlay.size-large #fs-album { font-size:clamp(12px,1.8vw,16px); }
 
-  /* Dancer mode: hide Spotify overlays so they don't consume GPU resources */
-  #app.dancer-mode #fs-overlay,
-  #app.dancer-mode #now-playing-screen { display:none !important; }
+  /* Dancer mode: hide track overlay — now-playing still shows when mic is off */
+  #app.dancer-mode #fs-overlay { display:none !important; }
 
   /* Tap hint */
   #fs-hint {
@@ -1160,6 +1159,7 @@ function getBarColor(mag, i, N) {
 // ── BACKGROUND ──
 let bgImage = null;
 function drawBackground() {
+  if (state.vizMode === 'dancer') return; // drawDancer fills its own bg — skip both canvases
   const W=bgCanvas.width, H=bgCanvas.height;
   bgCtx.clearRect(0,0,W,H);
   bgCtx.fillStyle = THEMES[state.colorTheme].bg;
@@ -1485,6 +1485,10 @@ function updateDancer(N) {
 
 function drawDancer(W, H, N) {
   updateDancer(N);
+
+  // Fill solid — bgCanvas skipped entirely, mainCanvas is opaque so GPU skips compositing it
+  mainCtx.fillStyle = THEMES[state.colorTheme].bg;
+  mainCtx.fillRect(0, 0, W, H);
 
   const sc    = Math.min(W,H)*0.38;
   const cx    = W/2;
