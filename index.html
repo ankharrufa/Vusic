@@ -226,6 +226,10 @@
   #fs-overlay.size-large #fs-artist { font-size:clamp(16px,2.8vw,26px); }
   #fs-overlay.size-large #fs-album { font-size:clamp(12px,1.8vw,16px); }
 
+  /* Dancer mode: hide Spotify overlays so they don't consume GPU resources */
+  #app.dancer-mode #fs-overlay,
+  #app.dancer-mode #now-playing-screen { display:none !important; }
+
   /* Tap hint */
   #fs-hint {
     position:absolute; top:16px; right:16px;
@@ -2103,6 +2107,7 @@ function updateSettings() {
   const themeEl = document.getElementById('color-theme');
   if (modeEl) state.vizMode = modeEl.value;
   if (themeEl) state.colorTheme = themeEl.value;
+  document.getElementById('app').classList.toggle('dancer-mode', state.vizMode === 'dancer');
   THEMES[state.colorTheme] && document.documentElement.style.setProperty('--accent', THEMES[state.colorTheme].accent);
   const modeQuick = document.getElementById('mode-quick');
   if (modeQuick) modeQuick.value = state.vizMode;
@@ -2805,6 +2810,7 @@ function setFsPos(pos) {
 // ── INIT ──
 function init() {
   loadSettings();
+  document.getElementById('app').classList.toggle('dancer-mode', state.vizMode === 'dancer');
   syncSettingsUI();
   const sid=localStorage.getItem('spotify_client_id');
   if(sid) document.getElementById('spotify-client-id').value=sid;
