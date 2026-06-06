@@ -1124,7 +1124,7 @@ const THEMES = {
 // ── CANVAS ──
 const bgCanvas = document.getElementById('bg-canvas');
 const mainCanvas = document.getElementById('main-canvas');
-const bgCtx = bgCanvas.getContext('2d');
+const bgCtx   = bgCanvas.getContext('2d', { alpha: false });   // always opaque — no alpha channel needed
 const mainCtx = mainCanvas.getContext('2d');
 
 function resizeCanvases() {
@@ -1506,29 +1506,32 @@ function drawDancer(W, H, N) {
   const avgLeg = (dancer.lLeg + dancer.rLeg)*0.5;
   const splitsAdj = thigh*(1 - Math.cos(avgLeg));
 
-  const hipY   = H*0.82 - shin - thigh + splitsAdj + dancer.jumpPos;
-  const shlY   = hipY - torsoH;
-  const headCY = shlY - sc*0.04 - headR;
+  // Integer pixel coordinates — avoids sub-pixel antialiasing work on every line
+  const r = v => v + 0.5 | 0;  // round to nearest int
 
-  const hipL={x:cx-hwid,y:hipY}, hipR={x:cx+hwid,y:hipY};
-  const shlL={x:cx-swid,y:shlY}, shlR={x:cx+swid,y:shlY};
+  const hipY   = r(H*0.82 - shin - thigh + splitsAdj + dancer.jumpPos);
+  const shlY   = r(hipY - torsoH);
+  const headCY = r(shlY - sc*0.04 - headR);
 
-  const elbL={x:shlL.x-Math.sin(dancer.lArm)*uArm, y:shlL.y+Math.cos(dancer.lArm)*uArm};
-  const elbR={x:shlR.x+Math.sin(dancer.rArm)*uArm, y:shlR.y+Math.cos(dancer.rArm)*uArm};
+  const hipL={x:r(cx-hwid),y:hipY}, hipR={x:r(cx+hwid),y:hipY};
+  const shlL={x:r(cx-swid),y:shlY}, shlR={x:r(cx+swid),y:shlY};
+
+  const elbL={x:r(shlL.x-Math.sin(dancer.lArm)*uArm), y:r(shlL.y+Math.cos(dancer.lArm)*uArm)};
+  const elbR={x:r(shlR.x+Math.sin(dancer.rArm)*uArm), y:r(shlR.y+Math.cos(dancer.rArm)*uArm)};
 
   let handL, handR;
   if(DANCER_ROUTINES[dancer.rIdx]==='windmill') {
-    handL={x:elbL.x-Math.sin(dancer.lElbPh)*fArm, y:elbL.y+Math.cos(dancer.lElbPh)*fArm};
-    handR={x:elbR.x+Math.sin(dancer.rElbPh)*fArm, y:elbR.y+Math.cos(dancer.rElbPh)*fArm};
+    handL={x:r(elbL.x-Math.sin(dancer.lElbPh)*fArm), y:r(elbL.y+Math.cos(dancer.lElbPh)*fArm)};
+    handR={x:r(elbR.x+Math.sin(dancer.rElbPh)*fArm), y:r(elbR.y+Math.cos(dancer.rElbPh)*fArm)};
   } else {
-    handL={x:elbL.x-Math.sin(dancer.lArm-dancer.lElb)*fArm, y:elbL.y+Math.cos(dancer.lArm-dancer.lElb)*fArm};
-    handR={x:elbR.x+Math.sin(dancer.rArm-dancer.rElb)*fArm, y:elbR.y+Math.cos(dancer.rArm-dancer.rElb)*fArm};
+    handL={x:r(elbL.x-Math.sin(dancer.lArm-dancer.lElb)*fArm), y:r(elbL.y+Math.cos(dancer.lArm-dancer.lElb)*fArm)};
+    handR={x:r(elbR.x+Math.sin(dancer.rArm-dancer.rElb)*fArm), y:r(elbR.y+Math.cos(dancer.rArm-dancer.rElb)*fArm)};
   }
 
-  const kneL={x:hipL.x-Math.sin(dancer.lLeg)*thigh, y:hipL.y+Math.cos(dancer.lLeg)*thigh};
-  const kneR={x:hipR.x+Math.sin(dancer.rLeg)*thigh, y:hipR.y+Math.cos(dancer.rLeg)*thigh};
-  const footL={x:kneL.x, y:kneL.y+shin};
-  const footR={x:kneR.x, y:kneR.y+shin};
+  const kneL={x:r(hipL.x-Math.sin(dancer.lLeg)*thigh), y:r(hipL.y+Math.cos(dancer.lLeg)*thigh)};
+  const kneR={x:r(hipR.x+Math.sin(dancer.rLeg)*thigh), y:r(hipR.y+Math.cos(dancer.rLeg)*thigh)};
+  const footL={x:kneL.x, y:r(kneL.y+shin)};
+  const footR={x:kneR.x, y:r(kneR.y+shin)};
 
   const accent = THEMES[state.colorTheme].accent;
 
