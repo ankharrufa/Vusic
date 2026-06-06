@@ -177,6 +177,23 @@
   #app.fullscreen #header { opacity:0; pointer-events:none; height:0; overflow:hidden; padding:0; border:none; min-height:0; transition:all 0.3s; }
   #app.fullscreen #bottom-panel { opacity:0; pointer-events:none; height:0; overflow:hidden; padding:0; border:none; min-height:0; transition:all 0.3s; }
 
+  /* Controls peek overlay in fullscreen */
+  #app.fullscreen.controls-peek #header {
+    position:absolute; top:0; left:0; right:0; z-index:25;
+    opacity:1; pointer-events:auto;
+    height:auto; overflow:visible;
+    padding:10px 16px; border-bottom:1px solid var(--border); min-height:unset;
+    transition:opacity 0.25s;
+  }
+  #app.fullscreen.controls-peek #bottom-panel {
+    position:absolute; bottom:0; left:0; right:0; z-index:25;
+    opacity:1; pointer-events:auto;
+    height:auto; overflow-x:auto; overflow-y:hidden;
+    padding:8px 14px; border-top:1px solid var(--border); min-height:unset;
+    transition:opacity 0.25s;
+  }
+  #app.fullscreen.controls-peek #fs-hint { opacity:0 !important; }
+
   /* Fullscreen track overlay - shown in fullscreen */
   #fs-overlay {
     position:absolute; bottom:0; left:0; right:0;
@@ -1583,6 +1600,13 @@ function updateSettings() {
   saveSettings();
 }
 
+// ── FULLSCREEN CONTROLS PEEK ──
+let controlsPeeking = false;
+function toggleControlsPeek() {
+  controlsPeeking = !controlsPeeking;
+  document.getElementById('app').classList.toggle('controls-peek', controlsPeeking);
+}
+
 // ── NOW PLAYING SCREEN ──
 function updateNowPlayingScreen() {
   const show = fsActive && !state.micActive && !!state.currentTrack;
@@ -1605,6 +1629,10 @@ function updateNowPlayingScreen() {
 let fsActive = false;
 function toggleFullscreen() {
   fsActive = !fsActive;
+  if (!fsActive && controlsPeeking) {
+    controlsPeeking = false;
+    document.getElementById('app').classList.remove('controls-peek');
+  }
   document.getElementById('app').classList.toggle('fullscreen', fsActive);
   document.getElementById('fs-btn').innerHTML = fsActive ? '✕<span class="btn-label"> EXIT</span>' : '⛶<span class="btn-label"> FULL</span>';
   resizeCanvases();
@@ -2069,7 +2097,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initGestures();
   document.getElementById('main-canvas').addEventListener('click', () => {
     if (gest.suppressClick) { gest.suppressClick = false; return; }
-    if (fsActive) toggleFullscreen();
+    if (fsActive) toggleControlsPeek();
+  });
+  document.getElementById('now-playing-screen').addEventListener('click', () => {
+    if (fsActive) toggleControlsPeek();
   });
   const gq = document.getElementById('gain-quick');
   const gqv = document.getElementById('gain-quick-val');
