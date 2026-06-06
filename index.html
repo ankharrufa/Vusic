@@ -1162,7 +1162,7 @@ function drawBackground() {
   bgCtx.fillRect(0,0,W,H);
   if (state.bgBlur && bgImage && state.currentTrack) {
     bgCtx.save();
-    bgCtx.filter='blur(40px) brightness(0.18) saturate(1.5)';
+    bgCtx.filter='blur(22px) brightness(0.38) saturate(1.8)';
     const sc=Math.max(W/bgImage.width,H/bgImage.height)*1.1;
     bgCtx.drawImage(bgImage,(W-bgImage.width*sc)/2,(H-bgImage.height*sc)/2,bgImage.width*sc,bgImage.height*sc);
     bgCtx.filter='none';
