@@ -936,6 +936,9 @@
     <div class="setting-row">
       <button class="btn" style="width:100%;padding:14px;font-size:11px;letter-spacing:2px;" onclick="remoteSendCmd('toggleFullscreen')">⛶ TOGGLE FULLSCREEN ON TABLET</button>
     </div>
+    <div class="setting-row">
+      <button class="btn" style="width:100%;padding:14px;font-size:11px;letter-spacing:2px;" onclick="remoteSendCmd('reload')">↺ RELOAD TABLET PAGE</button>
+    </div>
     <div class="setting-section">VISUALIZATION</div>
     <div class="setting-row">
       <label>MODE</label>
@@ -1859,6 +1862,7 @@ async function startFbSync(cfg) {
     const d=snap.val(); if(!d||d.t<=lastCmdT) return;
     lastCmdT=d.t;
     if(d.action==='toggleFullscreen') toggleFullscreen();
+    if(d.action==='reload') location.reload();
   });
 }
 
