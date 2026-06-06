@@ -1364,10 +1364,12 @@ function setDancerTargets() {
       dancer.lLegTgt = 0.04;
       break;
     case 'splits':
-      dancer.lLegTgt = dancer.rLegTgt = Math.PI*(oh ? 0.26 : 0.32+ba*0.12);
-      dancer.lArmTgt = oh ? 0.40 : 0.32+(bn%2)*0.18;
-      dancer.rArmTgt = oh ? 0.40 : 0.32+((1-bn%2))*0.18;
-      dancer.lElbTgt = dancer.rElbTgt = 0.08+e*0.15;
+      // Legs fully horizontal (π/2); hip auto-corrects so feet stay at floor
+      dancer.lLegTgt = dancer.rLegTgt = Math.PI*0.50;
+      // Hands shake rapidly upward: alternate high/low on every half-beat
+      dancer.lArmTgt = oh ? Math.PI*0.88 : Math.PI*0.62;
+      dancer.rArmTgt = oh ? Math.PI*0.62 : Math.PI*0.88;
+      dancer.lElbTgt = dancer.rElbTgt = 0.04+e*0.08;
       break;
     case 'twist':
       dancer.lArmTgt = dancer.rArmTgt = oh ? 0.10 : 0.05;
@@ -1411,53 +1413,64 @@ function updateDancer(N) {
   dancer.framesSinceOnset++;
   dancer.routineFrames++;
 
-  // Jump physics
+  // Jump physics (always runs, even in silence)
   if(dancer.jumpVel!==0||dancer.jumpPos!==0){
     dancer.jumpVel+=1.4; dancer.jumpPos+=dancer.jumpVel;
     if(dancer.jumpPos>=0){dancer.jumpPos=0;dancer.jumpVel=0;}
   }
 
-  // Windmill elbow orbit (continuous, no kicks)
+  // Windmill elbow orbit (always runs)
   const elbBase=(2*Math.PI)/Math.max(10,dancer.beatPeriod);
   dancer.lElbPh+=elbBase*1.7; dancer.rElbPh+=elbBase*1.1;
 
-  // ── Onset detection via sub-bass spike (kick drum) ──
-  const onset = subBass > dancer.subBassAvg*1.30 && subBass > 0.07
-                && dancer.framesSinceOnset > 7;
-  if(onset){
-    // Update period estimate from inter-onset interval
-    if(dancer.framesSinceOnset < 180)
-      dancer.beatPeriod = dancer.beatPeriod*0.75 + dancer.framesSinceOnset*0.25;
-    dancer.beatPeriod = Math.max(10, Math.min(120, dancer.beatPeriod));
-    // Phase-lock: pull beatPhase toward nearest 0 boundary
-    const phErr = dancer.beatPhase > 0.5 ? dancer.beatPhase-1 : dancer.beatPhase;
-    dancer.beatPhase -= phErr*0.30;
-    dancer.framesSinceOnset=0;
-    if(subBass > dancer.subBassAvg*2.2 && dancer.jumpPos===0) dancer.jumpVel=-11;
-  }
-
-  // ── Phase-locked clock: always advances at current tempo ──
-  const prevPhase = dancer.beatPhase;
-  dancer.beatPhase += 1/dancer.beatPeriod;
-
-  // Fire on each half-beat crossing (phase 0 and 0.5)
-  if(Math.floor(prevPhase*2) < Math.floor(dancer.beatPhase*2)){
-    dancer.routineHB++;
-    setDancerTargets();
-    // Routine change check
-    if(dancer.routineHB >= dancer.routineChange || dancer.routineFrames > 300){
-      dancer.routineHB=0; dancer.routineFrames=0;
-      dancer.routineChange=10+Math.floor(Math.random()*10);
-      const cur=dancer.rIdx;
-      let nx; do{nx=Math.floor(Math.random()*DANCER_ROUTINES.length);}while(nx===cur);
-      dancer.rIdx=nx;
-      setDancerTargets();
+  // ── Silence gate: freeze + return to neutral when no music ──
+  const isSilent = dancer.energy < 0.018;
+  if(!isSilent) {
+    // Onset detection via sub-bass spike (kick drum)
+    const onset = subBass > dancer.subBassAvg*1.30 && subBass > 0.07
+                  && dancer.framesSinceOnset > 7;
+    if(onset){
+      if(dancer.framesSinceOnset < 180)
+        dancer.beatPeriod = dancer.beatPeriod*0.75 + dancer.framesSinceOnset*0.25;
+      dancer.beatPeriod = Math.max(10, Math.min(120, dancer.beatPeriod));
+      const phErr = dancer.beatPhase > 0.5 ? dancer.beatPhase-1 : dancer.beatPhase;
+      dancer.beatPhase -= phErr*0.30;
+      dancer.framesSinceOnset=0;
+      // Strong onset: big jump
+      if(subBass > dancer.subBassAvg*1.9 && dancer.jumpPos===0) dancer.jumpVel=-12;
     }
-  }
-  if(dancer.beatPhase>=1) dancer.beatPhase-=1;
 
-  // Lerp toward targets — faster for random
-  const sp = DANCER_ROUTINES[dancer.rIdx]==='random' ? 0.38 : 0.22;
+    // Phase-locked clock: always advances at current tempo
+    const prevPhase = dancer.beatPhase;
+    dancer.beatPhase += 1/dancer.beatPeriod;
+
+    // Fire on each half-beat crossing
+    if(Math.floor(prevPhase*2) < Math.floor(dancer.beatPhase*2)){
+      dancer.routineHB++;
+      setDancerTargets();
+      // Periodic jump every 4 half-beats (= every 2 main beats) when energetic
+      if(dancer.routineHB%4===0 && dancer.energy>0.06 && dancer.jumpPos===0)
+        dancer.jumpVel=-9;
+      if(dancer.routineHB >= dancer.routineChange || dancer.routineFrames > 300){
+        dancer.routineHB=0; dancer.routineFrames=0;
+        dancer.routineChange=10+Math.floor(Math.random()*10);
+        const cur=dancer.rIdx;
+        let nx; do{nx=Math.floor(Math.random()*DANCER_ROUTINES.length);}while(nx===cur);
+        dancer.rIdx=nx;
+        setDancerTargets();
+      }
+    }
+    if(dancer.beatPhase>=1) dancer.beatPhase-=1;
+  } else {
+    // Silence: targets drift back to neutral pose
+    dancer.lArmTgt=0; dancer.rArmTgt=0;
+    dancer.lElbTgt=0.05; dancer.rElbTgt=0.05;
+    dancer.lLegTgt=0; dancer.rLegTgt=0;
+  }
+
+  // Lerp speed driven by state.smoothing: high smoothing = slow limbs
+  const baseSp = 0.04 + (1-(state.smoothing||0.8))*0.36;
+  const sp = isSilent ? 0.05 : (DANCER_ROUTINES[dancer.rIdx]==='random' ? Math.max(baseSp,0.36) : baseSp);
   dancer.lArm+=(dancer.lArmTgt-dancer.lArm)*sp;
   dancer.rArm+=(dancer.rArmTgt-dancer.rArm)*sp;
   dancer.lElb+=(dancer.lElbTgt-dancer.lElb)*sp;
