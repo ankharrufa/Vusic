@@ -1277,8 +1277,17 @@ function draw() {
 }
 
 // ── DANCER ──
-// Routines: groove=normal swing, armsUp=raised waving, windmill=circular forearms, wave=alternating arm up
-const DANCER_ROUTINES = ['groove','armsUp','windmill','wave'];
+// Routines: both-arm sync, both-arm independent, single-arm, alternating
+// Each entry: id, sync=arms mirror each other, one=only one arm active
+const DANCER_ROUTINES = [
+  {id:'groove',     sync:false, one:false},
+  {id:'syncGroove', sync:true,  one:false},
+  {id:'armsUp',     sync:true,  one:false},
+  {id:'windmill',   sync:false, one:false},
+  {id:'wave',       sync:false, one:false},
+  {id:'leftOnly',   sync:false, one:'l'  },
+  {id:'rightOnly',  sync:false, one:'r'  },
+];
 const dancer = {
   bass:0, mid:0, energy:0,
   bassAvg:0, framesSinceBeat:0, beatFrames:30,
@@ -1289,7 +1298,7 @@ const dancer = {
   lLegPh:3.2,  lLeg:0,   lLegSpd:1.1,
   rLegPh:1.4,  rLeg:0,   rLegSpd:1.8,
   bobPh:0.3,   bob:0,    bobSpd:2.1,
-  routine:'groove', routineBeatCount:0, routineChange:8,
+  rIdx:0, routineBeatCount:0, routineChange:5, routineFrames:0,
   waveBeat:0, waveArm:0,
 };
 
@@ -1311,29 +1320,38 @@ function updateDancer(N) {
   dancer.mid    = dancer.mid*sm    + rawMid*(1-sm);
 
   dancer.framesSinceBeat++;
+  dancer.routineFrames++;
   dancer.bassAvg = dancer.bassAvg*0.96 + rawBass*0.04;
-  // Gate on minimum absolute energy so quiet passages don't drift tempo
+
+  const nextRoutine = () => {
+    dancer.routineBeatCount = 0; dancer.routineFrames = 0;
+    dancer.routineChange = 3 + Math.floor(Math.random()*5);
+    const cur = dancer.rIdx;
+    let nx; do { nx=Math.floor(Math.random()*DANCER_ROUTINES.length); } while(nx===cur);
+    dancer.rIdx = nx;
+    dancer.waveBeat = 0; dancer.waveArm = 0;
+  };
+
+  // Hard 5-second cap regardless of beat count
+  if (dancer.routineFrames > 300) nextRoutine();
+
+  // Gate on min absolute energy so quiet passages don't corrupt tempo
   if (rawBass > 0.12 && rawBass > dancer.bassAvg*1.6 && dancer.framesSinceBeat > 8) {
     if (dancer.framesSinceBeat < 120)
       dancer.beatFrames = dancer.beatFrames*0.55 + dancer.framesSinceBeat*0.45;
     dancer.framesSinceBeat = 0;
-    dancer.lArmPh += Math.PI*(0.5+Math.random()*1.4);
-    dancer.rArmPh += Math.PI*(1.1+Math.random()*0.8);
-    dancer.lElbPh += Math.PI*(0.3+Math.random()*1.8);
-    dancer.rElbPh += Math.PI*(1.4+Math.random()*1.0);
-    dancer.lLegPh += Math.PI*(1.2+Math.random()*0.7);
-    dancer.rLegPh += Math.PI*(0.6+Math.random()*1.6);
-    dancer.bobPh  += Math.PI*(1.7+Math.random()*0.6);
+    // Small kicks = smoother, still beat-synced
+    dancer.lArmPh += Math.PI*(0.2+Math.random()*0.5);
+    dancer.rArmPh += Math.PI*(0.6+Math.random()*0.4);
+    dancer.lElbPh += Math.PI*(0.15+Math.random()*0.7);
+    dancer.rElbPh += Math.PI*(0.7+Math.random()*0.5);
+    dancer.lLegPh += Math.PI*(0.5+Math.random()*0.4);
+    dancer.rLegPh += Math.PI*(0.3+Math.random()*0.5);
+    dancer.bobPh  += Math.PI*(1.0+Math.random()*0.3);
     dancer.waveBeat++;
     if (dancer.waveBeat >= 4) { dancer.waveBeat=0; dancer.waveArm ^= 1; }
     dancer.routineBeatCount++;
-    if (dancer.routineBeatCount >= dancer.routineChange) {
-      dancer.routineBeatCount = 0;
-      dancer.routineChange = 6 + Math.floor(Math.random()*10);
-      const opts = DANCER_ROUTINES.filter(r => r !== dancer.routine);
-      dancer.routine = opts[Math.floor(Math.random()*opts.length)];
-      dancer.waveBeat = 0; dancer.waveArm = 0;
-    }
+    if (dancer.routineBeatCount >= dancer.routineChange) nextRoutine();
   }
 
   const base = (2*Math.PI)/dancer.beatFrames;
@@ -1345,45 +1363,62 @@ function updateDancer(N) {
   dancer.rLegPh += base*dancer.rLegSpd;
   dancer.bobPh  += base*dancer.bobSpd;
 
-  const sp=0.12;
+  const sp=0.09;
   const mi=Math.min(1, dancer.mid*3);
   const ba=Math.min(1, dancer.bass*3.5);
   const e =Math.min(1, dancer.energy*2.5);
+  const rt = DANCER_ROUTINES[dancer.rIdx].id;
 
-  if (dancer.routine === 'groove') {
-    dancer.lArm += (Math.max(0,Math.sin(dancer.lArmPh))*(0.35+mi*0.75) - dancer.lArm)*sp;
-    dancer.rArm += (Math.max(0,Math.sin(dancer.rArmPh))*(0.35+mi*0.75) - dancer.rArm)*sp;
+  if (rt === 'groove') {
+    dancer.lArm += (Math.max(0,Math.sin(dancer.lArmPh))*(0.4+mi*0.8) - dancer.lArm)*sp;
+    dancer.rArm += (Math.max(0,Math.sin(dancer.rArmPh))*(0.4+mi*0.8) - dancer.rArm)*sp;
     dancer.lElb += (0.1+Math.abs(Math.sin(dancer.lElbPh))*(0.25+e*0.65) - dancer.lElb)*sp;
     dancer.rElb += (0.1+Math.abs(Math.sin(dancer.rElbPh))*(0.25+e*0.65) - dancer.rElb)*sp;
-  } else if (dancer.routine === 'armsUp') {
-    // Arms raised: angle range ~π*0.55–0.95 puts elbows above or level with shoulder
-    const lT = Math.PI*0.55 + Math.abs(Math.sin(dancer.lArmPh))*Math.PI*0.4;
-    const rT = Math.PI*0.55 + Math.abs(Math.sin(dancer.rArmPh))*Math.PI*0.4;
-    dancer.lArm += (lT - dancer.lArm)*sp;
-    dancer.rArm += (rT - dancer.rArm)*sp;
-    dancer.lElb += (0.05+Math.abs(Math.sin(dancer.lElbPh))*0.25 - dancer.lElb)*sp;
-    dancer.rElb += (0.05+Math.abs(Math.sin(dancer.rElbPh))*0.25 - dancer.rElb)*sp;
-  } else if (dancer.routine === 'windmill') {
-    // Upper arms horizontal; forearms orbit elbow (lElbPh drives circle in drawDancer)
-    dancer.lArm += (Math.PI*0.42 - dancer.lArm)*sp*0.4;
-    dancer.rArm += (Math.PI*0.42 - dancer.rArm)*sp*0.4;
-  } else if (dancer.routine === 'wave') {
-    // Alternate which arm is raised every 4 beats
+  } else if (rt === 'syncGroove') {
+    // Both arms use left phase — mirrored swing
+    const tArm = Math.max(0,Math.sin(dancer.lArmPh))*(0.4+mi*0.8);
+    const tElb = 0.1+Math.abs(Math.sin(dancer.lElbPh))*(0.25+e*0.65);
+    dancer.lArm += (tArm - dancer.lArm)*sp;
+    dancer.rArm += (tArm - dancer.rArm)*sp;
+    dancer.lElb += (tElb - dancer.lElb)*sp;
+    dancer.rElb += (tElb - dancer.rElb)*sp;
+  } else if (rt === 'armsUp') {
+    const tArm = Math.PI*0.55 + Math.abs(Math.sin(dancer.lArmPh))*Math.PI*0.42;
+    dancer.lArm += (tArm - dancer.lArm)*sp;
+    dancer.rArm += (tArm - dancer.rArm)*sp;
+    dancer.lElb += (0.05+Math.abs(Math.sin(dancer.lElbPh))*0.22 - dancer.lElb)*sp;
+    dancer.rElb += (0.05+Math.abs(Math.sin(dancer.rElbPh))*0.22 - dancer.rElb)*sp;
+  } else if (rt === 'windmill') {
+    dancer.lArm += (Math.PI*0.42 - dancer.lArm)*sp*0.35;
+    dancer.rArm += (Math.PI*0.42 - dancer.rArm)*sp*0.35;
+    // lElbPh/rElbPh spin freely — used directly as orbit angle in drawDancer
+  } else if (rt === 'wave') {
     const lT = dancer.waveArm===0
-      ? Math.PI*0.72 + Math.sin(dancer.lArmPh)*0.25
-      : Math.max(0,Math.sin(dancer.lArmPh))*0.5;
+      ? Math.PI*0.72 + Math.sin(dancer.lArmPh)*0.22
+      : Math.max(0,Math.sin(dancer.lArmPh))*0.45;
     const rT = dancer.waveArm===1
-      ? Math.PI*0.72 + Math.sin(dancer.rArmPh)*0.25
-      : Math.max(0,Math.sin(dancer.rArmPh))*0.5;
+      ? Math.PI*0.72 + Math.sin(dancer.rArmPh)*0.22
+      : Math.max(0,Math.sin(dancer.rArmPh))*0.45;
     dancer.lArm += (lT - dancer.lArm)*sp;
     dancer.rArm += (rT - dancer.rArm)*sp;
-    dancer.lElb += (0.1+Math.abs(Math.sin(dancer.lElbPh))*0.35 - dancer.lElb)*sp;
-    dancer.rElb += (0.1+Math.abs(Math.sin(dancer.rElbPh))*0.35 - dancer.rElb)*sp;
+    dancer.lElb += (0.08+Math.abs(Math.sin(dancer.lElbPh))*0.3 - dancer.lElb)*sp;
+    dancer.rElb += (0.08+Math.abs(Math.sin(dancer.rElbPh))*0.3 - dancer.rElb)*sp;
+  } else if (rt === 'leftOnly') {
+    dancer.lArm += (Math.max(0,Math.sin(dancer.lArmPh))*(0.5+mi*0.9) - dancer.lArm)*sp;
+    dancer.rArm += (0.06 - dancer.rArm)*sp*0.4;
+    dancer.lElb += (0.1+Math.abs(Math.sin(dancer.lElbPh))*(0.3+e*0.7) - dancer.lElb)*sp;
+    dancer.rElb += (0.06 - dancer.rElb)*sp*0.4;
+  } else if (rt === 'rightOnly') {
+    dancer.rArm += (Math.max(0,Math.sin(dancer.rArmPh))*(0.5+mi*0.9) - dancer.rArm)*sp;
+    dancer.lArm += (0.06 - dancer.lArm)*sp*0.4;
+    dancer.rElb += (0.1+Math.abs(Math.sin(dancer.rElbPh))*(0.3+e*0.7) - dancer.rElb)*sp;
+    dancer.lElb += (0.06 - dancer.lElb)*sp*0.4;
   }
 
-  dancer.lLeg += (Math.max(0,Math.sin(dancer.lLegPh))*(0.15+ba*0.55) - dancer.lLeg)*sp;
-  dancer.rLeg += (Math.max(0,Math.sin(dancer.rLegPh))*(0.15+ba*0.55) - dancer.rLeg)*sp;
-  dancer.bob  += (Math.sin(dancer.bobPh)*(0.02+ba*0.04) - dancer.bob)*sp;
+  dancer.lLeg += (Math.max(0,Math.sin(dancer.lLegPh))*(0.18+ba*0.60) - dancer.lLeg)*sp;
+  dancer.rLeg += (Math.max(0,Math.sin(dancer.rLegPh))*(0.18+ba*0.60) - dancer.rLeg)*sp;
+  // 3× larger bob for visible jumping
+  dancer.bob  += (Math.sin(dancer.bobPh)*(0.05+ba*0.12) - dancer.bob)*(sp*1.4);
 }
 
 function drawDancer(W, H, N) {
@@ -1393,7 +1428,7 @@ function drawDancer(W, H, N) {
   const cx   = W/2;
   const headR  = sc*0.11;
   const torsoH = sc*0.30;
-  const swid   = sc*0.176;  // 20% shorter than before
+  const swid   = sc*0.176;
   const hwid   = sc*0.055;
   const uArm   = sc*0.24;
   const fArm   = sc*0.21;
@@ -1412,9 +1447,9 @@ function drawDancer(W, H, N) {
   const elbL={x:shlL.x-Math.sin(dancer.lArm)*uArm, y:shlL.y+Math.cos(dancer.lArm)*uArm};
   const elbR={x:shlR.x+Math.sin(dancer.rArm)*uArm, y:shlR.y+Math.cos(dancer.rArm)*uArm};
 
+  const rt = DANCER_ROUTINES[dancer.rIdx].id;
   let handL, handR;
-  if (dancer.routine === 'windmill') {
-    // Forearm orbits the elbow joint in a full circle
+  if (rt === 'windmill') {
     handL={x:elbL.x-Math.sin(dancer.lElbPh)*fArm, y:elbL.y+Math.cos(dancer.lElbPh)*fArm};
     handR={x:elbR.x+Math.sin(dancer.rElbPh)*fArm, y:elbR.y+Math.cos(dancer.rElbPh)*fArm};
   } else {
