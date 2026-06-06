@@ -1854,9 +1854,13 @@ async function startFbSync(cfg) {
 
 async function saveFbConfigFromInput() {
   let raw=(document.getElementById('fb-config-input').value||'').trim();
-  raw=raw.replace(/^const\s+\w+\s*=\s*/,'').replace(/;$/,'');
+  raw=raw.replace(/^const\s+\w+\s*=\s*/,'').replace(/;$/,'').trim();
   let cfg;
-  try { cfg=JSON.parse(raw); } catch(e) { alert('Invalid JSON — paste the full firebaseConfig object.'); return; }
+  try { cfg=JSON.parse(raw); }
+  catch(e) {
+    try { cfg=Function('return ('+raw+')')(); }
+    catch(e2) { alert('Invalid config — paste the full firebaseConfig object.'); return; }
+  }
   if (!cfg.apiKey||!cfg.databaseURL) { alert('Config must include apiKey and databaseURL.'); return; }
   localStorage.setItem('vusic_fb_config',JSON.stringify(cfg));
   await startFbSync(cfg);
