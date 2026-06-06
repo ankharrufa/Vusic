@@ -355,6 +355,32 @@
   .help-step { display:flex; gap:12px; align-items:flex-start; margin-bottom:10px; }
   .help-step-num { font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--accent); line-height:1; flex-shrink:0; width:18px; }
   .help-note { font-size:10px; color:var(--muted); letter-spacing:0.5px; line-height:1.7; margin-bottom:10px; }
+
+  /* ── REMOTE CONTROL & QR ── */
+  #qr-modal { position:fixed; inset:0; z-index:300; background:rgba(8,8,8,0.97); display:none; flex-direction:column; align-items:center; justify-content:center; padding:28px; gap:16px; }
+  #qr-modal.visible { display:flex; }
+  #qr-canvas-container { background:#fff; padding:14px; border-radius:12px; }
+  #qr-url-text { font-size:9px; color:var(--muted); letter-spacing:1px; text-align:center; word-break:break-all; max-width:320px; line-height:1.7; }
+  .fb-status-row { display:flex; align-items:center; gap:8px; margin-top:12px; }
+  #fb-status-dot { width:8px; height:8px; border-radius:50%; background:#555; flex-shrink:0; }
+  #fb-status-text { font-size:9px; letter-spacing:2px; color:var(--muted); }
+  .help-expand-btn { display:flex; align-items:center; justify-content:space-between; width:100%; background:none; border:none; border-bottom:1px solid var(--border); color:var(--accent); cursor:pointer; padding:0 0 6px; font-family:'DM Mono',monospace; font-size:9px; letter-spacing:3px; text-transform:uppercase; margin:24px 0 10px; }
+  .help-expand-arrow { font-size:16px; color:var(--accent); transition:transform 0.2s; }
+  .help-expand-btn.open .help-expand-arrow { transform:rotate(45deg); }
+  .help-expandable-content { display:none; }
+  .help-expandable-content.open { display:block; }
+
+  /* ── REMOTE UI ── */
+  #remote-ui { display:none; flex-direction:column; min-height:100vh; min-height:100dvh; background:var(--bg); overflow-y:auto; }
+  #remote-header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:var(--surface); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; }
+  #remote-logo { font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:4px; color:var(--accent); text-shadow:0 0 20px var(--accent); }
+  #remote-conn { font-size:9px; letter-spacing:2px; color:var(--muted); }
+  #remote-np { display:flex; align-items:center; gap:14px; padding:14px 16px; background:var(--surface); border-bottom:1px solid var(--border); min-height:80px; }
+  #remote-art { width:52px; height:52px; border-radius:6px; object-fit:cover; flex-shrink:0; display:none; }
+  #remote-art.visible { display:block; }
+  #remote-np-name { font-family:'Bebas Neue',sans-serif; font-size:20px; letter-spacing:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #remote-np-artist { font-size:10px; color:var(--muted); letter-spacing:1px; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #remote-controls { padding:0 16px 40px; }
 </style>
 </head>
 <body>
@@ -666,6 +692,26 @@
         <input type="text" class="spotify-input" id="spotify-client-id" placeholder="paste your Spotify client ID" oninput="saveClientId()">
         <div class="input-hint">Get free at developer.spotify.com<br>Set redirect URI: https://ankharrufa.github.io/Vusic/</div>
       </div>
+
+      <!-- REMOTE CONTROL -->
+      <div class="setting-section">REMOTE CONTROL</div>
+      <div class="setting-row">
+        <label>FIREBASE CONFIG</label>
+        <textarea class="spotify-input" id="fb-config-input" rows="6"
+          placeholder="Paste your Firebase config JSON here"
+          style="resize:vertical;font-size:10px;line-height:1.6;"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="btn" style="flex:1;padding:12px;" onclick="saveFbConfigFromInput()">SAVE</button>
+          <button class="btn" style="flex:1;padding:12px;" onclick="clearFbConfigAndDisconnect()">CLEAR</button>
+        </div>
+        <div class="fb-status-row">
+          <div id="fb-status-dot"></div>
+          <span id="fb-status-text">NOT CONFIGURED</span>
+        </div>
+      </div>
+      <div id="qr-section" style="display:none;" class="setting-row">
+        <button class="btn" style="width:100%;padding:14px;font-size:11px;letter-spacing:2px;border-color:var(--accent);color:var(--accent);" onclick="showQrCode()">📱 SHOW QR CODE FOR REMOTE</button>
+      </div>
     </div>
   </div>
 
@@ -852,10 +898,140 @@
     <div class="help-step"><span class="help-step-num">5</span><span class="help-desc">In Vusic, tap <strong>SET</strong> → scroll to the <strong>Spotify</strong> section → paste the Client ID into the field.</span></div>
     <div class="help-step"><span class="help-step-num">6</span><span class="help-desc">Tap the green <strong>SPOTIFY</strong> button in the header. You will be redirected to Spotify to authorise, then returned to Vusic automatically.</span></div>
 
+    <button class="help-expand-btn" id="remote-help-btn" onclick="toggleRemoteHelp()">
+      REMOTE CONTROL SETUP <span class="help-expand-arrow">+</span>
+    </button>
+    <div class="help-expandable-content" id="remote-help-content">
+      <div class="help-note">Control Vusic from your phone using Firebase as a free relay — works over the internet, no shared WiFi needed. Others sharing the app are unaffected; only your devices connect to your database.</div>
+      <div class="help-step"><span class="help-step-num">1</span><span class="help-desc">Go to <strong>firebase.google.com</strong> and sign in with your Google account.</span></div>
+      <div class="help-step"><span class="help-step-num">2</span><span class="help-desc">Click <strong>Add project</strong>. Give it any name (e.g. "vusic"). You can skip Google Analytics.</span></div>
+      <div class="help-step"><span class="help-step-num">3</span><span class="help-desc">In the left menu go to <strong>Build → Realtime Database</strong>. Click <strong>Create Database</strong> → pick any location → choose <strong>Start in test mode</strong> → click Enable.</span></div>
+      <div class="help-step"><span class="help-step-num">4</span><span class="help-desc">Click the <strong>⚙ gear icon</strong> (top-left) → <strong>Project settings</strong>. Scroll to <strong>Your apps</strong> → click the <strong>&lt;/&gt; Web</strong> icon → enter any nickname → click <strong>Register app</strong>.</span></div>
+      <div class="help-step"><span class="help-step-num">5</span><span class="help-desc">Copy the <strong>firebaseConfig</strong> object shown on screen — it looks like <code style="color:var(--accent);font-size:10px;">{ apiKey: "...", databaseURL: "...", ... }</code></span></div>
+      <div class="help-step"><span class="help-step-num">6</span><span class="help-desc">In Vusic tap <strong>SET → Remote Control</strong> → paste the config → tap <strong>SAVE</strong>. Status should turn green.</span></div>
+      <div class="help-step"><span class="help-step-num">7</span><span class="help-desc">Tap <strong>SHOW QR CODE FOR REMOTE</strong>. Scan it with your phone — the remote opens automatically pre-configured.</span></div>
+    </div>
+
     <div style="margin-top:36px;text-align:center;">
       <button class="cal-btn primary" onclick="toggleHelp()" style="padding:12px 36px;font-size:11px;letter-spacing:2px;">CLOSE</button>
     </div>
   </div>
+</div>
+
+<!-- REMOTE UI -->
+<div id="remote-ui">
+  <div id="remote-header">
+    <div id="remote-logo">VUSIC REMOTE</div>
+    <div id="remote-conn">CONNECTING…</div>
+  </div>
+  <div id="remote-np">
+    <img id="remote-art" src="" alt="">
+    <div style="min-width:0;flex:1;">
+      <div id="remote-np-name">NOT CONNECTED</div>
+      <div id="remote-np-artist"></div>
+    </div>
+  </div>
+  <div id="remote-controls">
+    <div class="setting-section">VISUALIZATION</div>
+    <div class="setting-row">
+      <label>MODE</label>
+      <select class="big-select" id="r-viz-mode" onchange="remotePush('vizMode',this.value)">
+        <option value="blocks-mirror">BLOCKS MIRROR</option>
+        <option value="blocks">BLOCKS</option>
+        <option value="radial">RADIAL</option>
+        <option value="single-h">SINGLE H</option>
+        <option value="single-v">SINGLE V</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <label>COLOR THEME</label>
+      <select class="big-select" id="r-color-theme" onchange="remotePush('colorTheme',this.value)">
+        <option value="fire">🔥 FIRE</option>
+        <option value="ice">❄️ ICE</option>
+        <option value="plasma">⚡ PLASMA</option>
+        <option value="acid">☢️ ACID</option>
+        <option value="mono">⬜ MONO</option>
+        <option value="spectrum">🌈 SPECTRUM</option>
+        <option value="multi">🎨 MULTI</option>
+        <option value="album">🖼 ALBUM ART</option>
+      </select>
+    </div>
+    <div class="setting-section">AUDIO</div>
+    <div class="setting-row">
+      <label>GAIN</label>
+      <div class="stepper">
+        <button class="stepper-btn" onclick="remoteStep('gain',-0.5,0.5,10)">−</button>
+        <div class="stepper-sep"></div>
+        <input class="stepper-input" id="r-gain" readonly inputmode="none">
+        <div class="stepper-unit">×</div>
+        <div class="stepper-sep"></div>
+        <button class="stepper-btn" onclick="remoteStep('gain',0.5,0.5,10)">+</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <label>NOISE FLOOR</label>
+      <div class="stepper">
+        <button class="stepper-btn" onclick="remoteStep('noiseFloor',-1,0,100)">−</button>
+        <div class="stepper-sep"></div>
+        <input class="stepper-input" id="r-noise" readonly inputmode="none">
+        <div class="stepper-unit">%</div>
+        <div class="stepper-sep"></div>
+        <button class="stepper-btn" onclick="remoteStep('noiseFloor',1,0,100)">+</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <label>SMOOTHING</label>
+      <div class="stepper">
+        <button class="stepper-btn" onclick="remoteStep('smoothing',-1,0,95)">−</button>
+        <div class="stepper-sep"></div>
+        <input class="stepper-input" id="r-smoothing" readonly inputmode="none">
+        <div class="stepper-unit">%</div>
+        <div class="stepper-sep"></div>
+        <button class="stepper-btn" onclick="remoteStep('smoothing',1,0,95)">+</button>
+      </div>
+    </div>
+    <div class="setting-row">
+      <label>PEAK HOLD</label>
+      <div class="toggle-row">
+        <div class="toggle-opt" id="r-peak-on" onclick="remotePush('peakHold',true)">ON</div>
+        <div class="toggle-opt" id="r-peak-off" onclick="remotePush('peakHold',false)">OFF</div>
+      </div>
+    </div>
+    <div class="setting-row">
+      <label>NIGHT MODE</label>
+      <div class="toggle-row">
+        <div class="toggle-opt" id="r-night-on" onclick="remotePush('nightMode',true)">ON</div>
+        <div class="toggle-opt" id="r-night-off" onclick="remotePush('nightMode',false)">OFF</div>
+      </div>
+    </div>
+    <div class="setting-row">
+      <label>BACKGROUND BLUR</label>
+      <div class="toggle-row">
+        <div class="toggle-opt" id="r-blur-on" onclick="remotePush('bgBlur',true)">ON</div>
+        <div class="toggle-opt" id="r-blur-off" onclick="remotePush('bgBlur',false)">OFF</div>
+      </div>
+    </div>
+    <div class="setting-section">DISPLAY</div>
+    <div class="setting-row">
+      <label>BARS</label>
+      <div class="stepper">
+        <button class="stepper-btn" onclick="remoteStep('barCount',-1,8,128)">−</button>
+        <div class="stepper-sep"></div>
+        <input class="stepper-input" id="r-bars" readonly inputmode="none">
+        <div class="stepper-unit">bars</div>
+        <div class="stepper-sep"></div>
+        <button class="stepper-btn" onclick="remoteStep('barCount',1,8,128)">+</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QR MODAL -->
+<div id="qr-modal">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:3px;color:var(--accent);">SCAN WITH PHONE</div>
+  <div id="qr-canvas-container"></div>
+  <div id="qr-url-text"></div>
+  <button class="cal-btn primary" onclick="closeQrModal()" style="padding:12px 36px;font-size:11px;letter-spacing:2px;">CLOSE</button>
 </div>
 
 <script>
@@ -1467,6 +1643,7 @@ function updateTrackUI(track) {
     bgImage=new Image(); bgImage.crossOrigin='anonymous'; bgImage.src=track.art;
   }
   document.getElementById('spotify-btn').innerHTML=track.isPlaying?'▶<span class="btn-label"> SPOTIFY</span>':'⏸<span class="btn-label"> SPOTIFY</span>';
+  fbPushTrack(track);
   updateNowPlayingScreen();
 }
 
@@ -1598,6 +1775,184 @@ function updateSettings() {
   const modeQuick = document.getElementById('mode-quick');
   if (modeQuick) modeQuick.value = state.vizMode;
   saveSettings();
+}
+
+// ── FIREBASE REMOTE CONTROL ──
+
+const REMOTE_KEYS = ['vizMode','colorTheme','gain','yScale','noiseFloor','smoothing',
+  'peakHold','bgBlur','nightMode','freqMin','freqMax','freqScale','barCount','fsPosition','spotifySize'];
+
+let fbApp=null, fbDb=null, fbReady=false;
+
+function getFbConfig() {
+  try { return JSON.parse(localStorage.getItem('vusic_fb_config')||'null'); } catch(e){ return null; }
+}
+
+function loadScript(src) {
+  return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
+}
+
+async function loadFirebaseSDK() {
+  if (window.firebase) return;
+  await loadScript('https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js');
+  await loadScript('https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js');
+}
+
+async function initFirebase(cfg) {
+  try {
+    await loadFirebaseSDK();
+    if (fbApp) { try { fbApp.delete(); } catch(e){} }
+    fbApp = firebase.initializeApp(cfg, 'vusic_'+Date.now());
+    fbDb = firebase.database(fbApp);
+    fbReady = true;
+    setFbStatus(true);
+    return true;
+  } catch(e) {
+    fbReady=false; setFbStatus(false,true);
+    return false;
+  }
+}
+
+function setFbStatus(ok, err) {
+  const dot=document.getElementById('fb-status-dot'), txt=document.getElementById('fb-status-text');
+  const qr=document.getElementById('qr-section');
+  if (!dot) return;
+  dot.style.background = ok ? '#1DB954' : (err ? '#ff4444' : '#555');
+  txt.textContent = ok ? 'CONNECTED' : (err ? 'ERROR — check config' : 'NOT CONFIGURED');
+  txt.style.color = ok ? '#1DB954' : '';
+  if (qr) qr.style.display = ok ? 'block' : 'none';
+}
+
+function fbPushSettings() {
+  if (!fbDb||!fbReady||isRemoteMode) return;
+  const d={}; REMOTE_KEYS.forEach(k=>{ if(state[k]!==undefined) d[k]=state[k]; });
+  fbDb.ref('vusic/settings').update(d).catch(()=>{});
+}
+
+function fbPushTrack(track) {
+  if (!fbDb||!fbReady||isRemoteMode) return;
+  fbDb.ref('vusic/track').set(track ? {
+    name:track.name, artist:track.artist,
+    album:track.album||'', art:track.art||'', isPlaying:!!track.isPlaying
+  } : null).catch(()=>{});
+}
+
+function fbListenAsDisplay() {
+  fbDb.ref('vusic/settings').on('value', snap => {
+    const d=snap.val(); if(!d) return;
+    let changed=false;
+    REMOTE_KEYS.forEach(k=>{ if(d[k]!==undefined&&d[k]!==state[k]){state[k]=d[k];changed=true;} });
+    if(changed){ syncSettingsUI(); saveSettings(); }
+  });
+}
+
+async function startFbSync(cfg) {
+  const ok = await initFirebase(cfg); if(!ok) return;
+  fbPushSettings();
+  fbListenAsDisplay();
+}
+
+async function saveFbConfigFromInput() {
+  let raw=(document.getElementById('fb-config-input').value||'').trim();
+  raw=raw.replace(/^const\s+\w+\s*=\s*/,'').replace(/;$/,'');
+  let cfg;
+  try { cfg=JSON.parse(raw); } catch(e) { alert('Invalid JSON — paste the full firebaseConfig object.'); return; }
+  if (!cfg.apiKey||!cfg.databaseURL) { alert('Config must include apiKey and databaseURL.'); return; }
+  localStorage.setItem('vusic_fb_config',JSON.stringify(cfg));
+  await startFbSync(cfg);
+}
+
+function clearFbConfigAndDisconnect() {
+  localStorage.removeItem('vusic_fb_config');
+  if(fbApp){try{fbApp.delete();}catch(e){}}
+  fbApp=null; fbDb=null; fbReady=false;
+  setFbStatus(false,false);
+  const inp=document.getElementById('fb-config-input'); if(inp) inp.value='';
+}
+
+async function showQrCode() {
+  const cfg=getFbConfig(); if(!cfg) return;
+  const min={apiKey:cfg.apiKey,databaseURL:cfg.databaseURL,projectId:cfg.projectId||''};
+  const url=location.origin+location.pathname+'?remote=1&cfg='+btoa(JSON.stringify(min));
+  if (!window.QRCode) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js');
+  const container=document.getElementById('qr-canvas-container');
+  container.innerHTML='';
+  new QRCode(container,{text:url,width:240,height:240,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
+  document.getElementById('qr-url-text').textContent=url;
+  document.getElementById('qr-modal').classList.add('visible');
+}
+
+function closeQrModal() { document.getElementById('qr-modal').classList.remove('visible'); }
+
+function toggleRemoteHelp() {
+  document.getElementById('remote-help-btn').classList.toggle('open');
+  document.getElementById('remote-help-content').classList.toggle('open');
+}
+
+// ── REMOTE MODE ──
+
+let isRemoteMode=false;
+
+async function initRemoteMode() {
+  isRemoteMode=true;
+  document.getElementById('app').style.display='none';
+  document.getElementById('remote-ui').style.display='flex';
+  const params=new URLSearchParams(location.search);
+  const cfgB64=params.get('cfg');
+  if (!cfgB64) { document.getElementById('remote-conn').textContent='No config — scan QR from tablet'; return; }
+  let cfg;
+  try { cfg=JSON.parse(atob(cfgB64)); } catch(e) { document.getElementById('remote-conn').textContent='Invalid config'; return; }
+  const ok=await initFirebase(cfg);
+  if (!ok) { document.getElementById('remote-conn').textContent='Connection failed'; return; }
+  document.getElementById('remote-conn').textContent='CONNECTED';
+  document.getElementById('remote-conn').style.color='#1DB954';
+  // Load current settings then start listening
+  fbDb.ref('vusic/settings').on('value', snap=>{
+    const d=snap.val(); if(!d) return;
+    REMOTE_KEYS.forEach(k=>{ if(d[k]!==undefined) state[k]=d[k]; });
+    syncRemoteUI();
+  });
+  fbDb.ref('vusic/track').on('value', snap=>updateRemoteTrack(snap.val()));
+}
+
+function syncRemoteUI() {
+  const get=(id)=>document.getElementById(id);
+  const el=get('r-viz-mode'); if(el) el.value=state.vizMode;
+  const et=get('r-color-theme'); if(et) et.value=state.colorTheme;
+  const eg=get('r-gain'); if(eg) eg.value=parseFloat(state.gain).toFixed(1);
+  const en=get('r-noise'); if(en) en.value=Math.round(state.noiseFloor);
+  const es=get('r-smoothing'); if(es) es.value=Math.round(state.smoothing*100);
+  const eb=get('r-bars'); if(eb) eb.value=state.barCount;
+  get('r-peak-on')?.classList.toggle('active',!!state.peakHold);
+  get('r-peak-off')?.classList.toggle('active',!state.peakHold);
+  get('r-night-on')?.classList.toggle('active',!!state.nightMode);
+  get('r-night-off')?.classList.toggle('active',!state.nightMode);
+  get('r-blur-on')?.classList.toggle('active',!!state.bgBlur);
+  get('r-blur-off')?.classList.toggle('active',!state.bgBlur);
+}
+
+function updateRemoteTrack(track) {
+  const art=document.getElementById('remote-art');
+  document.getElementById('remote-np-name').textContent=track?track.name.toUpperCase():'NOTHING PLAYING';
+  document.getElementById('remote-np-artist').textContent=track?track.artist:'Waiting for Spotify…';
+  if(track?.art){art.src=track.art;art.classList.add('visible');}else{art.classList.remove('visible');}
+}
+
+function remotePush(key,value) {
+  if(!fbDb) return;
+  state[key]=value;
+  fbDb.ref('vusic/settings/'+key).set(value).catch(()=>{});
+  syncRemoteUI();
+}
+
+function remoteStep(key,delta,min,max) {
+  const cur=parseFloat(state[key])||0;
+  // smoothing is stored as 0–0.95 internally but shown as 0–95
+  const isSmoothing=(key==='smoothing');
+  const curDisplay=isSmoothing?Math.round(cur*100):cur;
+  const next=Math.max(min,Math.min(max,Math.round((curDisplay+delta)*10)/10));
+  const stored=isSmoothing?next/100:next;
+  remotePush(key,stored);
 }
 
 // ── FULLSCREEN CONTROLS PEEK ──
@@ -1982,6 +2337,7 @@ function saveSettings() {
   const out = {};
   SETTINGS_KEYS.forEach(k => { if (state[k] !== undefined) out[k] = state[k]; });
   localStorage.setItem('vusic_settings', JSON.stringify(out));
+  fbPushSettings();
 }
 
 function loadSettings() {
@@ -2037,6 +2393,10 @@ function syncSettingsUI() {
   if (idx >= 0 && btns[idx]) btns[idx].classList.add('active');
   // FS position
   updateFsPosition();
+  // Firebase config input
+  const fbInp=document.getElementById('fb-config-input');
+  if(fbInp){ const cfg=getFbConfig(); if(cfg) fbInp.value=JSON.stringify(cfg,null,2); }
+  if(fbReady) setFbStatus(true);
 }
 
 // ── FULLSCREEN OVERLAY POSITION ──
@@ -2087,9 +2447,15 @@ function init() {
     const token=localStorage.getItem('spotify_token'), exp=parseInt(localStorage.getItem('spotify_expires')||'0');
     if(token&&Date.now()<exp){state.spotifyToken=token;startSpotifyPolling();}
   }
+  const fbCfg=getFbConfig();
+  if(fbCfg) startFbSync(fbCfg);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  if (new URLSearchParams(location.search).get('remote') === '1') {
+    initRemoteMode();
+    return;
+  }
   resizeCanvases();
   initSteppers();
   draw();
