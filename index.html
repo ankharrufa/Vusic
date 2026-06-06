@@ -983,6 +983,17 @@
       </div>
     </div>
     <div class="setting-row">
+      <label>Y-SCALE</label>
+      <div class="stepper">
+        <button class="stepper-btn" onclick="remoteStep('yScale',-0.1,0.5,6)">−</button>
+        <div class="stepper-sep"></div>
+        <input class="stepper-input" id="r-yscale" readonly inputmode="none">
+        <div class="stepper-unit">×</div>
+        <div class="stepper-sep"></div>
+        <button class="stepper-btn" onclick="remoteStep('yScale',0.1,0.5,6)">+</button>
+      </div>
+    </div>
+    <div class="setting-row">
       <label>NOISE FLOOR</label>
       <div class="stepper">
         <button class="stepper-btn" onclick="remoteStep('noiseFloor',-1,0,100)">−</button>
@@ -1985,6 +1996,7 @@ function syncRemoteUI() {
   const el=get('r-viz-mode'); if(el) el.value=state.vizMode;
   const et=get('r-color-theme'); if(et) et.value=state.colorTheme;
   const eg=get('r-gain'); if(eg) eg.value=parseFloat(state.gain).toFixed(1);
+  const ey=get('r-yscale'); if(ey) ey.value=parseFloat(state.yScale).toFixed(1);
   const en=get('r-noise'); if(en) en.value=Math.round(state.noiseFloor);
   const es=get('r-smoothing'); if(es) es.value=Math.round(state.smoothing*100);
   const eb=get('r-bars'); if(eb) eb.value=state.barCount;
