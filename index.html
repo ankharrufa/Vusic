@@ -1522,12 +1522,12 @@ function drawDancer(W, H, N) {
   const footL={x:kneL.x, y:kneL.y+shin};
   const footR={x:kneR.x, y:kneR.y+shin};
 
-  const accent=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()||'#ff6b35';
+  const accent = THEMES[state.colorTheme].accent;
 
   mainCtx.save();
   mainCtx.lineCap='round'; mainCtx.lineJoin='round';
   mainCtx.strokeStyle=accent; mainCtx.fillStyle=accent;
-  mainCtx.shadowColor=accent; mainCtx.shadowBlur=18+dancer.energy*28;
+  mainCtx.shadowColor=accent; mainCtx.shadowBlur=4+dancer.energy*10;
 
   const line=(a,b,w=lw)=>{mainCtx.beginPath();mainCtx.moveTo(a.x,a.y);mainCtx.lineTo(b.x,b.y);mainCtx.lineWidth=w;mainCtx.stroke();};
 
