@@ -1160,7 +1160,7 @@ function drawBackground() {
   bgCtx.clearRect(0,0,W,H);
   bgCtx.fillStyle = THEMES[state.colorTheme].bg;
   bgCtx.fillRect(0,0,W,H);
-  if (state.bgBlur && bgImage && state.currentTrack) {
+  if (state.bgBlur && bgImage && state.currentTrack && state.vizMode !== 'dancer') {
     bgCtx.save();
     bgCtx.filter='blur(22px) brightness(0.38) saturate(1.8)';
     const sc=Math.max(W/bgImage.width,H/bgImage.height)*1.1;
